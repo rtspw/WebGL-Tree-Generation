@@ -1,7 +1,7 @@
 import { tiny } from './tiny-graphics.js';
 import { Movement_Controls } from './scene-components.js';
-import { Triangle, Cube, Square } from './shapes.js';
-import { Funny_Shader, Phong_Shader } from './shaders.js';
+import { Triangle, Cube, Square, Grid_Patch, Subdivision_Sphere } from './shapes.js';
+import { Phong_Shader } from './shaders.js';
 
 const {
   Scene,
@@ -23,11 +23,17 @@ class MainScene extends Scene {
       make_editor: false,
       show_explanation: false,
     }
+    const initial_corner_point = vec3( -1,-1,0 );
+    const row_operation = (s,p) => p ? Mat4.translation( 0,.2,0 ).times(p.to4(1)).to3() 
+                                       : initial_corner_point;
+      const column_operation = (t,p) =>  Mat4.translation( .2,0,0 ).times(p.to4(1)).to3();
 
     this.shapes = {
       triangle: new Triangle(),
       square: new Square(),
       cube: new Cube(),
+      gridPatch: new Grid_Patch(10, 10, row_operation, column_operation),
+      sphere: new Subdivision_Sphere(4),
     };
 
     this.materials = {
@@ -53,18 +59,24 @@ class MainScene extends Scene {
         state.set_camera(Mat4.look_at(vec3(0, 5, 10), vec3(0, 0, 0), vec3(0, 1, 0)));
       }
       this.initialized = true;
+      console.log(state)
     }
 
     state.projection_transform = Mat4.perspective( Math.PI/4, context.width/context.height, 1, 100 );
     
     const ground_matrix = Mat4.identity()
       // .times(Mat4.rotation(Math.PI / 4, 1, 1, 1))
-      .times(Mat4.scale(10, .01, 10));
+      // .times(Mat4.scale(10, .01, 10));
       
    
     this.shapes.cube.draw(context, state, ground_matrix, this.materials.ground)
 
-    this.shapes.cube.draw(context, state, Mat4.identity()
+    this.positions.sun[1] = this.positions.sun[1] - (state.animation_time / 1000000);
+
+
+
+    state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000);
+    this.shapes.sphere.draw(context, state, Mat4.identity()
       .times(Mat4.translation(...this.positions.sun))
       .times(Mat4.scale(.1, .1, .1))
     , this.materials.light )
