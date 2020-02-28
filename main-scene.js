@@ -28,6 +28,11 @@ class MainScene extends Scene {
                                        : initial_corner_point;
       const column_operation = (t,p) =>  Mat4.translation( .2,0,0 ).times(p.to4(1)).to3();
 
+    this.settings = {
+      fogColor: [.7, .7, .9, 1],
+      fogIntensity: 0.5,
+    }
+
     this.shapes = {
       triangle: new Triangle(),
       square: new Square(),
@@ -36,8 +41,12 @@ class MainScene extends Scene {
       sphere: new Subdivision_Sphere(4),
     };
 
+    this.shaders = {
+      phongWithFog: new Phong_With_Fog_Shader(1, color(...this.settings.fogColor), this.settings.fogIntensity),
+    }
+
     this.materials = {
-      ground: new Material(new Phong_With_Fog_Shader(1, .5), { ambient: .5, diffusivity: .7, specularity: .2, color: color(.5, .6, .8 ,1) }),
+      ground: new Material(this.shaders.phongWithFog, { ambient: .0, diffusivity: .7, specularity: .2, color: color(.5, .6, .8 ,1) }),
       light: new Material(new Phong_Shader(1), { ambient: 1, color: color(1, 1, 1, 1) }),
     };
 
@@ -52,7 +61,7 @@ class MainScene extends Scene {
 
     if (!this.initialized) {
       state.lights = [new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 1000000 )];
-      context.context.clearColor(.8, .7, .9, 1);
+      context.context.clearColor(...this.settings.fogColor);
       if (!context.scratchpad.controls) {
         context.scratchpad.controls = new Movement_Controls();
         this.children.push(context.scratchpad.controls);
