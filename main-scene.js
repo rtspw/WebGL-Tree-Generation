@@ -1,6 +1,6 @@
 import { tiny } from './tiny-graphics.js';
 import { Movement_Controls } from './scene-components.js';
-import { Triangle, Cube, Square, Grid_Patch, Subdivision_Sphere } from './shapes.js';
+import { Triangle, Cube, Square, OffsetSquare, Subdivision_Sphere } from './shapes.js';
 import { Phong_Shader, Phong_With_Fog_Shader } from './shaders.js';
 
 const {
@@ -13,6 +13,7 @@ const {
   vec4,
 } = tiny;
 
+
 class MainScene extends Scene {
   constructor() {
     super();
@@ -24,10 +25,6 @@ class MainScene extends Scene {
       show_explanation: false,
     }
 
-    const initial_corner_point = vec3( -1,-1,0 );
-    const row_operation = (s,p) => p ? Mat4.translation( 0,.2,0 ).times(p.to4(1)).to3() : initial_corner_point;
-    const column_operation = (t,p) =>  Mat4.translation( .2,0,0 ).times(p.to4(1)).to3();
-
     this.settings = {
       fogColor: [.7, .7, .9, 1],
       fogIntensity: 0.5,
@@ -38,8 +35,8 @@ class MainScene extends Scene {
       triangle: new Triangle(),
       square: new Square(),
       cube: new Cube(),
-      gridPatch: new Grid_Patch(10, 10, row_operation, column_operation),
       sphere: new Subdivision_Sphere(4),
+      offsetSquare: new OffsetSquare(10, .1),
     };
 
     this.shaders = {
@@ -47,7 +44,7 @@ class MainScene extends Scene {
     }
 
     this.materials = {
-      ground: new Material(this.shaders.phongWithFog, { ambient: .0, diffusivity: .7, specularity: .3, color: color(...this.settings.groundColor) }),
+      ground: new Material(this.shaders.phongWithFog, { ambient: .5, diffusivity: .7, specularity: .7, color: color(...this.settings.groundColor) }),
       light: new Material(this.shaders.phongWithFog, { ambient: 1, color: color(1, 1, 1, 1) }),
     };
 
@@ -70,26 +67,21 @@ class MainScene extends Scene {
       }
       state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
       this.initialized = true;
+      console.log(context)
       console.log(state)
     }
 
-    
-      const ground_matrix = Mat4.identity()
-        .times(Mat4.scale(10, 1, 10))
-        .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0));
 
-      const test = Mat4.identity()
-        .times(Mat4.translation(0, 2, 0))
-        .times(Mat4.scale(2, 2, 2))
+      const ground_matrix = Mat4.identity()
+        .times(Mat4.scale(20, 20, 20))
+        .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
       
-   
-      this.shapes.square.draw(context, state, ground_matrix, this.materials.ground);
-      this.shapes.cube.draw(context, state, test, this.materials.ground);
+      this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
   
 
 
-    this.positions.sun[1] = this.positions.sun[1] - (state.animation_time / 1000000);
-    state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000999);
+    // this.positions.sun[1] = this.positions.sun[1] - (state.animation_time / 1000000);
+    // state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000999);
     
     this.shapes.sphere.draw(context, state, Mat4.identity()
       .times(Mat4.translation(...this.positions.sun))

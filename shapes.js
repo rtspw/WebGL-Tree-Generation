@@ -62,54 +62,6 @@ class Cube extends Shape
     }
 }
 
-class Grid_Patch extends Shape       // A grid of rows and columns you can distort. A tesselation of triangles connects the
-{                                           // points, generated with a certain predictable pattern of indices.  Two callbacks
-                                            // allow you to dynamically define how to reach the next row or column.
-  constructor( rows, columns, next_row_function, next_column_function, texture_coord_range = [ [ 0, rows ], [ 0, columns ] ]  )
-    { super( "position", "normal", "texture_coord" );
-      let points = [];
-      for( let r = 0; r <= rows; r++ ) 
-      { points.push( new Array( columns+1 ) );                                                    // Allocate a 2D array.
-                                             // Use next_row_function to generate the start point of each row. Pass in the progress ratio,
-        points[ r ][ 0 ] = next_row_function( r/rows, points[ r-1 ] && points[ r-1 ][ 0 ] );      // and the previous point if it existed.                                                                                                  
-      }
-      for(   let r = 0; r <= rows;    r++ )               // From those, use next_column function to generate the remaining points:
-        for( let c = 0; c <= columns; c++ )
-        { if( c > 0 ) points[r][ c ] = next_column_function( c/columns, points[r][ c-1 ], r/rows );
-      
-          this.arrays.position.push( points[r][ c ] );        
-                                                                                      // Interpolate texture coords from a provided range.
-          const a1 = c/columns, a2 = r/rows, x_range = texture_coord_range[0], y_range = texture_coord_range[1];
-          this.arrays.texture_coord.push( vec( ( a1 )*x_range[1] + ( 1-a1 )*x_range[0], ( a2 )*y_range[1] + ( 1-a2 )*y_range[0] ) );
-        }
-      for(   let r = 0; r <= rows;    r++ )            // Generate normals by averaging the cross products of all defined neighbor pairs.
-        for( let c = 0; c <= columns; c++ )
-        { let curr = points[r][c], neighbors = new Array(4), normal = vec3( 0,0,0 );          
-          for( let [ i, dir ] of [ [ -1,0 ], [ 0,1 ], [ 1,0 ], [ 0,-1 ] ].entries() )         // Store each neighbor by rotational order.
-            neighbors[i] = points[ r + dir[1] ] && points[ r + dir[1] ][ c + dir[0] ];        // Leave "undefined" in the array wherever
-                                                                                              // we hit a boundary.
-          for( let i = 0; i < 4; i++ )                                          // Take cross-products of pairs of neighbors, proceeding
-            if( neighbors[i] && neighbors[ (i+1)%4 ] )                          // a consistent rotational direction through the pairs:
-              normal = normal.plus( neighbors[i].minus( curr ).cross( neighbors[ (i+1)%4 ].minus( curr ) ) );          
-          normal.normalize();                                                              // Normalize the sum to get the average vector.
-                                                     // Store the normal if it's valid (not NaN or zero length), otherwise use a default:
-          if( normal.every( x => x == x ) && normal.norm() > .01 )  this.arrays.normal.push( normal.copy() );    
-          else                                                      this.arrays.normal.push( vec3( 0,0,1 ) );
-        }   
-        
-      for( var h = 0; h < rows; h++ )             // Generate a sequence like this (if #columns is 10):  
-        for( var i = 0; i < 2 * columns; i++ )    // "1 11 0  11 1 12  2 12 1  12 2 13  3 13 2  13 3 14  4 14 3..." 
-          for( var j = 0; j < 3; j++ )
-            this.indices.push( h * ( columns + 1 ) + columns * ( ( i + ( j % 2 ) ) % 2 ) + ( ~~( ( j % 3 ) / 2 ) ? 
-                                   ( ~~( i / 2 ) + 2 * ( i % 2 ) )  :  ( ~~( i / 2 ) + 1 ) ) );
-    }
-  static sample_array( array, ratio )                 // Optional but sometimes useful as a next row or column operation. In a given array
-    {                                                 // of points, intepolate the pair of points that our progress ratio falls between.  
-      const frac = ratio * ( array.length - 1 ), alpha = frac - Math.floor( frac );
-      return array[ Math.floor( frac ) ].mix( array[ Math.ceil( frac ) ], alpha );
-    }
-}
-
 class Subdivision_Sphere extends Shape   
 {                       // **Subdivision_Sphere** defines a Sphere surface, with nice uniform triangles.  A subdivision surface
                         // (see Wikipedia article on those) is initially simple, then builds itself into a more and more 
@@ -161,31 +113,62 @@ class Subdivision_Sphere extends Shape
               }
           }
       }
+  }
+  subdivide_triangle( a, b, c, count )
+  {                                           // subdivide_triangle(): Recurse through each level of detail 
+                                              // by splitting triangle (a,b,c) into four smaller ones.
+    if( count <= 0)
+      {                                       // Base case of recursion - we've hit the finest level of detail we want.
+        this.indices.push( a,b,c ); 
+        return; 
+      }
+                                              // So we're not at the base case.  So, build 3 new vertices at midpoints,
+                                              // and extrude them out to touch the unit sphere (length 1).
+    var ab_vert = this.arrays.position[a].mix( this.arrays.position[b], 0.5).normalized(),     
+        ac_vert = this.arrays.position[a].mix( this.arrays.position[c], 0.5).normalized(),
+        bc_vert = this.arrays.position[b].mix( this.arrays.position[c], 0.5).normalized(); 
+                                              // Here, push() returns the indices of the three new vertices (plus one).
+    var ab = this.arrays.position.push( ab_vert ) - 1,
+        ac = this.arrays.position.push( ac_vert ) - 1,  
+        bc = this.arrays.position.push( bc_vert ) - 1;  
+                              // Recurse on four smaller triangles, and we're done.  Skipping every fourth vertex index in 
+                              // our list takes you down one level of detail, and so on, due to the way we're building it.
+    this.subdivide_triangle( a, ab, ac,  count - 1 );
+    this.subdivide_triangle( ab, b, bc,  count - 1 );
+    this.subdivide_triangle( ac, bc, c,  count - 1 );
+    this.subdivide_triangle( ab, bc, ac, count - 1 );
+  }
+}
+
+class OffsetSquare extends Shape {
+  constructor(divisions = 6, bumpiness = 1) { 
+    super( "position", "normal");
+    const dividedSquare = [...Array(divisions)].map((x, i) => ((2/divisions) * i) - 1);
+    dividedSquare.push(1);
+    const topVerticies = dividedSquare.map(x => [x,1,Math.random() * bumpiness]);
+    const bottomVerticies = dividedSquare.map(x => [x,-1,Math.random() * bumpiness]);
+    const verticies = [];
+    const normals = [];
+    for (let i = 0; i < topVerticies.length - 1; i++) {
+      verticies.push(vec3(...topVerticies[i + 1]), vec3(...topVerticies[i]), vec3(...bottomVerticies[i]));
+      const firstNormal = this.getNormalFromTopOfVertexList(verticies);
+      normals.push(firstNormal, firstNormal, firstNormal);
+      verticies.push(vec3(...bottomVerticies[i]), vec3(...bottomVerticies[i + 1]), vec3(...topVerticies[i + 1]));
+      const secondNormal = this.getNormalFromTopOfVertexList(verticies);
+      normals.push(secondNormal, secondNormal, secondNormal);
     }
-    subdivide_triangle( a, b, c, count )
-    {                                           // subdivide_triangle(): Recurse through each level of detail 
-                                                // by splitting triangle (a,b,c) into four smaller ones.
-      if( count <= 0)
-        {                                       // Base case of recursion - we've hit the finest level of detail we want.
-          this.indices.push( a,b,c ); 
-          return; 
-        }
-                                                // So we're not at the base case.  So, build 3 new vertices at midpoints,
-                                                // and extrude them out to touch the unit sphere (length 1).
-      var ab_vert = this.arrays.position[a].mix( this.arrays.position[b], 0.5).normalized(),     
-          ac_vert = this.arrays.position[a].mix( this.arrays.position[c], 0.5).normalized(),
-          bc_vert = this.arrays.position[b].mix( this.arrays.position[c], 0.5).normalized(); 
-                                                // Here, push() returns the indices of the three new vertices (plus one).
-      var ab = this.arrays.position.push( ab_vert ) - 1,
-          ac = this.arrays.position.push( ac_vert ) - 1,  
-          bc = this.arrays.position.push( bc_vert ) - 1;  
-                               // Recurse on four smaller triangles, and we're done.  Skipping every fourth vertex index in 
-                               // our list takes you down one level of detail, and so on, due to the way we're building it.
-      this.subdivide_triangle( a, ab, ac,  count - 1 );
-      this.subdivide_triangle( ab, b, bc,  count - 1 );
-      this.subdivide_triangle( ac, bc, c,  count - 1 );
-      this.subdivide_triangle( ab, bc, ac, count - 1 );
-    }
+    this.arrays.position = verticies;
+    this.arrays.normal = normals;
   }
 
-export { Triangle, Square, Cube, Grid_Patch, Subdivision_Sphere };
+  getNormalFromTopOfVertexList(verticies) {
+    const firstVector = verticies[verticies.length - 3].minus(verticies[verticies.length - 2]);
+    const secondVector = verticies[verticies.length - 2].minus(verticies[verticies.length - 1]);
+    const normal = firstVector.cross(secondVector).normalized();
+    return normal;
+  }
+}
+
+
+
+export { Triangle, Square, Cube, OffsetSquare, Subdivision_Sphere };
