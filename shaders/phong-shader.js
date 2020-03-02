@@ -1,23 +1,20 @@
-import { tiny } from './tiny-graphics.js';
+import { tiny } from '../tiny-graphics.js';
+const { Shader, Matrix, color, vec4 } = tiny;
 
-const {
-  Shader, Matrix, color, vec4, Mat4
-} = tiny;
-
-class Phong_Shader extends Shader
-{                                  // **Phong_Shader** is a subclass of Shader, which stores and maanges a GPU program.  
-                                   // Graphic cards prior to year 2000 had shaders like this one hard-coded into them
-                                   // instead of customizable shaders.  "Phong-Blinn" Shading here is a process of 
-                                   // determining brightness of pixels via vector math.  It compares the normal vector
-                                   // at that pixel with the vectors toward the camera and light sources.
+// **Phong_Shader** is a subclass of Shader, which stores and maanges a GPU program.  
+// Graphic cards prior to year 2000 had shaders like this one hard-coded into them
+// instead of customizable shaders.  "Phong-Blinn" Shading here is a process of 
+// determining brightness of pixels via vector math.  It compares the normal vector
+// at that pixel with the vectors toward the camera and light sources.
+class Phong_Shader extends Shader{                                  
 
   
-  constructor( num_lights = 2 )
-    { super(); 
-      this.num_lights = num_lights;
-    }
+  constructor( num_lights = 2 ) { 
+    super(); 
+    this.num_lights = num_lights;
+  }
 
-  shared_glsl_code()           // ********* SHARED CODE, INCLUDED IN BOTH SHADERS *********
+  shared_glsl_code()
     { return ` precision mediump float;
         const int N_LIGHTS = ` + this.num_lights + `;
         uniform float ambient, diffusivity, specularity, smoothness;
@@ -64,8 +61,8 @@ class Phong_Shader extends Shader
             return result;
           } ` ;
     }
-  vertex_glsl_code()           // ********* VERTEX SHADER *********
-    { return this.shared_glsl_code() + `
+  vertex_glsl_code() { 
+      return this.shared_glsl_code() + `
         attribute vec3 position, normal;                            // Position is expressed in object coordinates.
         
         uniform mat4 model_transform;
@@ -80,9 +77,10 @@ class Phong_Shader extends Shader
             vertex_worldspace = ( model_transform * vec4( position, 1.0 ) ).xyz;
           } ` ;
     }
-  fragment_glsl_code()         // ********* FRAGMENT SHADER ********* 
-    {                          // A fragment is a pixel that's overlapped by the current triangle.
-                               // Fragments affect the final image or get discarded due to depth.                                 
+
+  fragment_glsl_code() {                          
+      // A fragment is a pixel that's overlapped by the current triangle.
+      // Fragments affect the final image or get discarded due to depth.                                 
       return this.shared_glsl_code() + `
         void main()
           {                                                           // Compute an initial (ambient) color:
@@ -145,108 +143,4 @@ class Phong_Shader extends Shader
     }
 }
 
-class Funny_Shader extends Shader
-{                                        // **Funny_Shader**: A simple "procedural" texture shader, with 
-                                         // texture coordinates but without an input image.
-  update_GPU( context, gpu_addresses, program_state, model_transform, material )
-      {        // update_GPU():  Define how to synchronize our JavaScript's variables to the GPU's:
-        const [ P, C, M ] = [ program_state.projection_transform, program_state.camera_inverse, model_transform ],
-                      PCM = P.times( C ).times( M );
-        context.uniformMatrix4fv( gpu_addresses.projection_camera_model_transform, false, Mat4.flatten_2D_to_1D( PCM.transposed() ) );
-        context.uniform1f ( gpu_addresses.animation_time, program_state.animation_time / 1000 );
-      }
-  shared_glsl_code()            // ********* SHARED CODE, INCLUDED IN BOTH SHADERS *********
-    { return `precision mediump float;
-              varying vec2 f_tex_coord;
-      `;
-    }
-  vertex_glsl_code()           // ********* VERTEX SHADER *********
-    { return this.shared_glsl_code() + `
-        attribute vec3 position;                            // Position is expressed in object coordinates.
-        attribute vec2 texture_coord;
-        uniform mat4 projection_camera_model_transform;
-
-        void main()
-        { gl_Position = projection_camera_model_transform * vec4( position, 1.0 );   // The vertex's final resting place (in NDCS).
-          f_tex_coord = texture_coord;                                       // Directly use original texture coords and interpolate between.
-        }`;
-    }
-  fragment_glsl_code()           // ********* FRAGMENT SHADER *********
-    { return this.shared_glsl_code() + `
-        uniform float animation_time;
-        void main()
-        { float a = animation_time, u = f_tex_coord.x, v = f_tex_coord.y;   
-                                                                  // Use an arbitrary math function to color in all pixels as a complex                                                                  
-          gl_FragColor = vec4(                                    // function of the UV texture coordintaes of the pixel and of time.  
-            2.0 * u * sin(17.0 * u ) + 3.0 * v * sin(11.0 * v ) + 1.0 * sin(13.0 * a),
-            3.0 * u * sin(18.0 * u ) + 4.0 * v * sin(12.0 * v ) + 2.0 * sin(14.0 * a),
-            4.0 * u * sin(19.0 * u ) + 5.0 * v * sin(13.0 * v ) + 3.0 * sin(15.0 * a),
-            5.0 * u * sin(20.0 * u ) + 6.0 * v * sin(14.0 * v ) + 4.0 * sin(16.0 * a));
-        }`;
-    }
-}
-
-class Phong_With_Fog_Shader extends Phong_Shader { 
-  constructor(num_lights = 2, fogColor = color(0, 0, 0, 1), fogFactor = .5){ 
-    super(num_lights); 
-    this.fogColor = fogColor;
-    this.fogFactor = fogFactor;
-  }
-
-  send_material( gl, gpu, material ) {                          
-    super.send_material(gl, gpu, material);
-    
-  }
-
-  send_gpu_state( gl, gpu, gpu_state, model_transform ) {   
-    super.send_gpu_state(gl, gpu, gpu_state, model_transform);
-    gl.uniformMatrix4fv( gpu.camera_transform, false, Matrix.flatten_2D_to_1D(gpu_state.camera_inverse.transposed()));
-  }
-
-  update_GPU( context, gpu_addresses, gpu_state, model_transform, material ) {
-    super.update_GPU(context, gpu_addresses, gpu_state, model_transform, material);
-    context.uniform1f (gpu_addresses.fogFactor, this.fogFactor);
-    context.uniform4fv(gpu_addresses.fogColor, this.fogColor)
-  }
-
-  vertex_glsl_code() { 
-    return this.shared_glsl_code() + `
-      attribute vec3 position, normal; // Position is expressed in object coordinates.
-      
-      uniform mat4 model_transform;
-      uniform mat4 projection_camera_model_transform;
-      uniform mat4 camera_transform;
-
-      varying float camera_depth;
-
-      void main() {  
-        // The vertex's final resting place (in NDCS):
-        gl_Position = projection_camera_model_transform * vec4(position, 1.0);
-        camera_depth = -1.0 * (camera_transform * model_transform * vec4(position, 1)).z;
-        
-        // The final normal vector in screen space.
-        N = normalize(mat3(model_transform) * normal / squared_scale);
-        
-        vertex_worldspace = (model_transform * vec4(position, 1.0)).xyz;
-      } 
-    `;
-  }
-
-  fragment_glsl_code() {                           
-    return this.shared_glsl_code() + `
-      varying float camera_depth;
-
-      uniform float fogFactor;
-      uniform vec4 fogColor;
-
-      void main(){
-        float fogIntensity = 1.0 - smoothstep(0.0, 1.0, (fogFactor * camera_depth) / 25.0);
-        gl_FragColor = vec4(shape_color.xyz * ambient, shape_color.w);
-        gl_FragColor.xyz += phong_model_lights(normalize(N), vertex_worldspace);
-        gl_FragColor = mix(fogColor, gl_FragColor, fogIntensity);
-      }
-    `;
-  }
-}
-
-export { Phong_Shader, Phong_With_Fog_Shader, Funny_Shader };
+export default Phong_Shader;

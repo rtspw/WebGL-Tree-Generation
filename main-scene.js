@@ -1,7 +1,10 @@
 import { tiny } from './tiny-graphics.js';
 import { Movement_Controls } from './scene-components.js';
-import { Triangle, Cube, Square, OffsetSquare, Subdivision_Sphere } from './shapes.js';
-import { Phong_Shader, Phong_With_Fog_Shader } from './shaders.js';
+
+import Phong_With_Fog_Shader from './shaders/phong-with-fog-shader.js';
+
+import OffsetSquare from './shapes/offset-square.js';
+import Subdivision_Sphere from './shapes/subdivision-sphere.js';
 
 const {
   Scene,
@@ -32,9 +35,6 @@ class MainScene extends Scene {
     }
 
     this.shapes = {
-      triangle: new Triangle(),
-      square: new Square(),
-      cube: new Cube(),
       sphere: new Subdivision_Sphere(4),
       offsetSquare: new OffsetSquare(10, .1),
     };
