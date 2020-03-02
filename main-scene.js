@@ -23,14 +23,15 @@ class MainScene extends Scene {
       make_editor: false,
       show_explanation: false,
     }
+
     const initial_corner_point = vec3( -1,-1,0 );
-    const row_operation = (s,p) => p ? Mat4.translation( 0,.2,0 ).times(p.to4(1)).to3() 
-                                       : initial_corner_point;
-      const column_operation = (t,p) =>  Mat4.translation( .2,0,0 ).times(p.to4(1)).to3();
+    const row_operation = (s,p) => p ? Mat4.translation( 0,.2,0 ).times(p.to4(1)).to3() : initial_corner_point;
+    const column_operation = (t,p) =>  Mat4.translation( .2,0,0 ).times(p.to4(1)).to3();
 
     this.settings = {
       fogColor: [.7, .7, .9, 1],
       fogIntensity: 0.5,
+      groundColor: [.5, .6, .4, 1],
     }
 
     this.shapes = {
@@ -46,12 +47,12 @@ class MainScene extends Scene {
     }
 
     this.materials = {
-      ground: new Material(this.shaders.phongWithFog, { ambient: .0, diffusivity: .7, specularity: .2, color: color(.5, .6, .8 ,1) }),
-      light: new Material(new Phong_Shader(1), { ambient: 1, color: color(1, 1, 1, 1) }),
+      ground: new Material(this.shaders.phongWithFog, { ambient: .0, diffusivity: .7, specularity: .3, color: color(...this.settings.groundColor) }),
+      light: new Material(this.shaders.phongWithFog, { ambient: 1, color: color(1, 1, 1, 1) }),
     };
 
     this.positions = {
-      sun: [0, 5, 5, 0],
+      sun: [0, 5, 5, 1],
     }
 
     this.initialized = false;
@@ -60,30 +61,36 @@ class MainScene extends Scene {
   display(context, state) {
 
     if (!this.initialized) {
-      state.lights = [new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 1000000 )];
+      state.lights = [new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 1000000999)];
       context.context.clearColor(...this.settings.fogColor);
       if (!context.scratchpad.controls) {
         context.scratchpad.controls = new Movement_Controls();
         this.children.push(context.scratchpad.controls);
         state.set_camera(Mat4.look_at(vec3(0, 5, 10), vec3(0, 0, 0), vec3(0, 1, 0)));
       }
+      state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
       this.initialized = true;
       console.log(state)
     }
 
-    state.projection_transform = Mat4.perspective( Math.PI/4, context.width/context.height, 1, 100 );
     
       const ground_matrix = Mat4.identity()
-      // .times(Mat4.rotation(Math.PI / 4, 1, 1, 1))
-        .times(Mat4.scale(50, .01, 50));
+        .times(Mat4.scale(10, 1, 10))
+        .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0));
+
+      const test = Mat4.identity()
+        .times(Mat4.translation(0, 2, 0))
+        .times(Mat4.scale(2, 2, 2))
       
    
-      this.shapes.cube.draw(context, state, ground_matrix, this.materials.ground)
+      this.shapes.square.draw(context, state, ground_matrix, this.materials.ground);
+      this.shapes.cube.draw(context, state, test, this.materials.ground);
   
 
 
-    this.positions.sun[1] = this.positions.sun[1] - (state.animation_time / 10000000);
-    state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000);
+    this.positions.sun[1] = this.positions.sun[1] - (state.animation_time / 1000000);
+    state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000999);
+    
     this.shapes.sphere.draw(context, state, Mat4.identity()
       .times(Mat4.translation(...this.positions.sun))
       .times(Mat4.scale(.1, .1, .1))
