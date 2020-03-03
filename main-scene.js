@@ -29,14 +29,21 @@ class MainScene extends Scene {
     }
 
     this.settings = {
-      fogColor: [.7, .7, .9, 1],
-      fogIntensity: 0.5,
+      fogColor: [.4, .6, .8, 1],
+      fogIntensity: 0.4,
       groundColor: [.5, .6, .4, 1],
+      groundOptions: {
+        columnDivisions: 16,
+        rowDivisions: 10,
+        bumpiness: 0.02,
+        rowNoiseFactor: .8,
+        colNoiseFactor: .8,
+      }
     }
 
     this.shapes = {
       sphere: new Subdivision_Sphere(4),
-      offsetSquare: new OffsetSquare({columnDivisions: 10, rowDivisions: 4, bumpiness: 0.05 }, 10, 4, .05),
+      offsetSquare: new OffsetSquare(this.settings.groundOptions),
     };
 
     this.shaders = {
@@ -44,7 +51,7 @@ class MainScene extends Scene {
     }
 
     this.materials = {
-      ground: new Material(this.shaders.phongWithFog, { ambient: .5, diffusivity: .7, specularity: .7, color: color(...this.settings.groundColor) }),
+      ground: new Material(this.shaders.phongWithFog, { ambient: .5, diffusivity: .7, specularity: .2, color: color(...this.settings.groundColor) }),
       light: new Material(this.shaders.phongWithFog, { ambient: 1, color: color(1, 1, 1, 1) }),
     };
 
@@ -69,12 +76,14 @@ class MainScene extends Scene {
       this.initialized = true;
       console.log(context)
       console.log(state)
+      console.log(this.materials.ground)
+
     }
 
     state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000000);
 
     const ground_matrix = Mat4.identity()
-      .times(Mat4.scale(20, 20, 20))
+      .times(Mat4.scale(40, 40, 40))
       .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
     
     this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
@@ -83,7 +92,7 @@ class MainScene extends Scene {
       .times(Mat4.translation(...this.positions.sun))
       .times(Mat4.scale(.1, .1, .1))
     
-    this.shapes.sphere.draw(context, state, sun_matrix, this.materials.light )
+    this.shapes.sphere.draw(context, state, sun_matrix, this.materials.light );
   }
 
   make_control_panel() {
