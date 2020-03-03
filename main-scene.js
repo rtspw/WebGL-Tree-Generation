@@ -5,6 +5,7 @@ import Phong_With_Fog_Shader from './shaders/phong-with-fog-shader.js';
 
 import OffsetSquare from './shapes/offset-square.js';
 import Subdivision_Sphere from './shapes/subdivision-sphere.js';
+import Cube from './shapes/cube.js';
 
 const {
   Scene,
@@ -15,6 +16,15 @@ const {
   Light,
   vec4,
 } = tiny;
+
+function lerpRGB(colorA, colorB, factor = 0.5) {
+  return [
+    colorA[0] + (colorB[0]-colorA[0]) * factor,
+    colorA[1] + (colorB[1]-colorA[1]) * factor,
+    colorA[2] + (colorB[2]-colorA[2]) * factor,
+    colorA[3] + (colorB[3]-colorA[3]) * factor,
+  ];
+}
 
 
 class MainScene extends Scene {
@@ -29,7 +39,7 @@ class MainScene extends Scene {
     }
 
     this.settings = {
-      fogColor: [.4, .6, .8, 1],
+      fogColor: [.3, .8, .9, 0],
       fogIntensity: 0.4,
       groundColor: [.5, .6, .4, 1],
       groundOptions: {
@@ -43,6 +53,7 @@ class MainScene extends Scene {
 
     this.shapes = {
       sphere: new Subdivision_Sphere(4),
+      cube: new Cube(),
       offsetSquare: new OffsetSquare(this.settings.groundOptions),
     };
 
@@ -76,8 +87,7 @@ class MainScene extends Scene {
       this.initialized = true;
       console.log(context)
       console.log(state)
-      console.log(this.materials.ground)
-
+      console.log(lerpRGB(this.settings.fogColor, [1, 0, 0, 1], .5))
     }
 
     state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000000);
@@ -88,11 +98,17 @@ class MainScene extends Scene {
     
     this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
 
+    this.shapes.cube.draw(context, state, Mat4.translation(0, .5, 0), this.materials.ground);
+
     const sun_matrix = Mat4.identity()
       .times(Mat4.translation(...this.positions.sun))
       .times(Mat4.scale(.1, .1, .1))
     
     this.shapes.sphere.draw(context, state, sun_matrix, this.materials.light );
+    
+    const newColor = lerpRGB(this.settings.fogColor, [.2,.2,.2, 1], state.animation_time / 100000);
+    this.materials.ground.shader.fogColor = color(...newColor)
+    context.context.clearColor(...newColor);
   }
 
   make_control_panel() {
