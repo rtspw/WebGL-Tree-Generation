@@ -36,7 +36,7 @@ class MainScene extends Scene {
 
     this.shapes = {
       sphere: new Subdivision_Sphere(4),
-      offsetSquare: new OffsetSquare(10, .1),
+      offsetSquare: new OffsetSquare({columnDivisions: 10, rowDivisions: 4, bumpiness: 0.05 }, 10, 4, .05),
     };
 
     this.shaders = {
@@ -49,7 +49,7 @@ class MainScene extends Scene {
     };
 
     this.positions = {
-      sun: [0, 5, 5, 1],
+      sun: [0, 10, 0, 1],
     }
 
     this.initialized = false;
@@ -58,7 +58,7 @@ class MainScene extends Scene {
   display(context, state) {
 
     if (!this.initialized) {
-      state.lights = [new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 1000000999)];
+      state.lights = [new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 1000000000)];
       context.context.clearColor(...this.settings.fogColor);
       if (!context.scratchpad.controls) {
         context.scratchpad.controls = new Movement_Controls();
@@ -71,27 +71,40 @@ class MainScene extends Scene {
       console.log(state)
     }
 
+    state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000000);
 
-      const ground_matrix = Mat4.identity()
-        .times(Mat4.scale(20, 20, 20))
-        .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
-      
-      this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
-  
-
-
-    // this.positions.sun[1] = this.positions.sun[1] - (state.animation_time / 1000000);
-    // state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000999);
+    const ground_matrix = Mat4.identity()
+      .times(Mat4.scale(20, 20, 20))
+      .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
     
-    this.shapes.sphere.draw(context, state, Mat4.identity()
+    this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
+
+    const sun_matrix = Mat4.identity()
       .times(Mat4.translation(...this.positions.sun))
       .times(Mat4.scale(.1, .1, .1))
-    , this.materials.light )
+    
+    this.shapes.sphere.draw(context, state, sun_matrix, this.materials.light )
   }
 
   make_control_panel() {
-    this.key_triggered_button( "Previous group", [ "g" ],  () => {});
-    this.key_triggered_button(     "Next group", [ "h" ],  () => {}); 
+    this.key_triggered_button('Sun -Z', ['i'],  () => {
+      this.positions.sun[2] = this.positions.sun[2] - 1;
+    });
+    this.key_triggered_button('Sun +Z', ['k'],  () => {
+      this.positions.sun[2] = this.positions.sun[2] + 1;
+    });
+    this.key_triggered_button('Sun -X', ['j'],  () => {
+      this.positions.sun[0] = this.positions.sun[0] - 1;
+    });
+    this.key_triggered_button('Sun +X', ['l'],  () => {
+      this.positions.sun[0] = this.positions.sun[0] + 1;
+    });
+    this.key_triggered_button('Sun -Y', ['h'],  () => {
+      this.positions.sun[1] = this.positions.sun[1] - 1;
+    });
+    this.key_triggered_button('Sun +Y', ['y'],  () => {
+      this.positions.sun[1] = this.positions.sun[1] + 1;
+    });
   }
 
 }
