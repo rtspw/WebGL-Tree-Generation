@@ -118,84 +118,70 @@ class MainScene extends Scene {
     this.initialized = false;
   }
 
-  display(context, state) {
-
-    if (!this.initialized) {
-      state.lights = [
-        new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), 1000000000),
-        new Light(vec4(...this.positions.sun), color(...this.settings.moonlightColor), 10000000),
-      ];
-      context.context.clearColor(...this.settings.fogColor);
-      if (!context.scratchpad.controls) {
-        context.scratchpad.controls = new Movement_Controls();
-        this.children.push(context.scratchpad.controls);
-        state.set_camera(Mat4.look_at(vec3(0, 5, 10), vec3(0, 0, 0), vec3(0, 1, 0)));
-      }
-      state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
-      this.initialized = true;
-      console.log(context)
-      console.log(state)
-      console.log(this.positions)
+  initializeScene(context, state) {
+    state.lights = [
+      new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), 1000000000),
+      new Light(vec4(...this.positions.sun), color(...this.settings.moonlightColor), 10000000),
+    ];
+    context.context.clearColor(...this.settings.fogColor);
+    if (!context.scratchpad.controls) {
+      context.scratchpad.controls = new Movement_Controls();
+      this.children.push(context.scratchpad.controls);
+      state.set_camera(Mat4.look_at(vec3(0, 10, 25), vec3(0, 0, -50), vec3(0, 1, 0)));
     }
+    state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
+    this.initialized = true;
+  }
 
-    const sunlightIntensity = Math.max(100000, this.positions.sun[1] * 10000000);
-    const moonlightIntensity = Math.max(100000, this.positions.moon[1] * 100000);
-    state.lights[0] = new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), sunlightIntensity);
-    state.lights[1] = new Light(vec4(...this.positions.moon), color(...this.settings.moonlightColor), moonlightIntensity);
-    const sunMatrix = Mat4.identity()
-      .times(Mat4.rotation(state.animation_time / 10000, 1, 0, 1))
-      .times(Mat4.translation(0, 60, 0))
-      .times(Mat4.scale(2, 2, 2))
-    this.positions.sun = [...sunMatrix.times(vec4(0, 0, 0, 1))]
-
-    const moonMatrix = Mat4.identity()
-      .times(Mat4.rotation(state.animation_time / 10000 + 0.1, 1, 0, 1))
-      .times(Mat4.translation(0, -60, 0))
-      .times(Mat4.scale(1, 1, 1))
-    this.positions.moon = [...moonMatrix.times(vec4(0, 0, 0, 1))];
-  
-    this.shapes.sphere.draw(context, state, sunMatrix, this.materials.sun );
-    this.shapes.sphere.draw(context, state, moonMatrix, this.materials.moon );
-
-
+  updateGround(context, state) {
     const ground_matrix = Mat4.identity()
       .times(Mat4.scale(50, 50, 50))
       .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
     this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
+  }
 
-    this.shapes.cube.draw(context, state, Mat4.translation(0, 1.5, 0), this.materials.metal);
-    
+  updateSun(context, state) {
+    const sunlightIntensity = Math.max(100000, this.positions.sun[1] * 10000000);
+    state.lights[0] = new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), sunlightIntensity);
+    const sunMatrix = Mat4.identity()
+      .times(Mat4.rotation(state.animation_time / 5000, 1, 0, 1))
+      .times(Mat4.translation(0, 65, 0))
+      .times(Mat4.scale(2, 2, 2))
+    this.positions.sun = [...sunMatrix.times(vec4(0, 0, 0, 1))]
+    this.shapes.sphere.draw(context, state, sunMatrix, this.materials.sun );
+  }
+
+  updateMoon(context, state) {
+    const moonlightIntensity = Math.max(100000, this.positions.moon[1] * 100000);
+    state.lights[1] = new Light(vec4(...this.positions.moon), color(...this.settings.moonlightColor), moonlightIntensity);
+    const moonMatrix = Mat4.identity()
+      .times(Mat4.rotation(state.animation_time / 5000 + 0.1, 1, 0, 1))
+      .times(Mat4.translation(0, -65, 0))
+      .times(Mat4.scale(1, 1, 1))
+    this.positions.moon = [...moonMatrix.times(vec4(0, 0, 0, 1))];
+    this.shapes.sphere.draw(context, state, moonMatrix, this.materials.moon );
+  }
+
+  updateSky(context, state) {
     const updatedFogColor = getColorFromSpectrum(this.positions.sun[1] / 50);
     this.materials.ground.shader.fogColor = color(...updatedFogColor);
     this.materials.ground.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.metal.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.ground.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.metal.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
-
     context.context.clearColor(...updatedFogColor);
   }
 
-  make_control_panel() {
-    this.key_triggered_button('Sun -Z', ['i'],  () => {
-      this.positions.sun[2] = this.positions.sun[2] - 1;
-    });
-    this.key_triggered_button('Sun +Z', ['k'],  () => {
-      this.positions.sun[2] = this.positions.sun[2] + 1;
-    });
-    this.key_triggered_button('Sun -X', ['j'],  () => {
-      this.positions.sun[0] = this.positions.sun[0] - 1;
-    });
-    this.key_triggered_button('Sun +X', ['l'],  () => {
-      this.positions.sun[0] = this.positions.sun[0] + 1;
-    });
-    this.key_triggered_button('Sun -Y', ['h'],  () => {
-      this.positions.sun[1] = this.positions.sun[1] - 1;
-    });
-    this.key_triggered_button('Sun +Y', ['y'],  () => {
-      this.positions.sun[1] = this.positions.sun[1] + 1;
-    });
+  display(context, state) {
+    if (!this.initialized) this.initializeScene(context, state);
+    this.updateSun(context, state);
+    this.updateMoon(context, state);
+    this.updateGround(context, state);
+    this.shapes.cube.draw(context, state, Mat4.translation(0, 1.5, 0), this.materials.metal);
+    this.updateSky(context, state);
   }
 
+  make_control_panel() {}
 }
 
 export default MainScene;
