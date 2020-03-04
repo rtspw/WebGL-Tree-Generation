@@ -1,6 +1,7 @@
 import { tiny } from './tiny-graphics.js';
 import { Movement_Controls } from './scene-components.js';
 
+import Phong_Shader from './shaders/phong-shader.js';
 import Phong_With_Fog_Shader from './shaders/phong-with-fog-shader.js';
 
 import OffsetSquare from './shapes/offset-square.js';
@@ -91,6 +92,7 @@ class MainScene extends Scene {
       sunlightColor: [255/255, 244/255, 229/255, 1],
       moonColor: [255/255, 244/255, 229/255, 1],
       moonlightColor: [.7, .7, 1, 1],
+      rotationsPerMinute: 5,
     }
 
     this.shapes = {
@@ -101,13 +103,14 @@ class MainScene extends Scene {
 
     this.shaders = {
       phongWithFog: new Phong_With_Fog_Shader(2, color(...this.settings.fogColor), this.settings.fogIntensity),
+      phong: new Phong_Shader(2), 
     }
 
     this.materials = {
       ground: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .7, specularity: .2, color: color(...this.settings.groundColor) }),
       metal: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .2, specularity: .95, color: color(.4, .4, .6, 1) }),
-      sun: new Material(this.shaders.phongWithFog, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
-      moon: new Material(this.shaders.phongWithFog, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
+      sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
+      moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
     };
 
     this.positions = {
@@ -144,7 +147,7 @@ class MainScene extends Scene {
     const sunlightIntensity = Math.max(100000, this.positions.sun[1] * 10000000);
     state.lights[0] = new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), sunlightIntensity);
     const sunMatrix = Mat4.identity()
-      .times(Mat4.rotation(state.animation_time / 5000, 1, 0, 1))
+      .times(Mat4.rotation(2 * Math.PI * (state.animation_time / 1000) * (this.settings.rotationsPerMinute / 60), 1, 0, 1))
       .times(Mat4.translation(0, 65, 0))
       .times(Mat4.scale(2, 2, 2))
     this.positions.sun = [...sunMatrix.times(vec4(0, 0, 0, 1))]
@@ -155,7 +158,7 @@ class MainScene extends Scene {
     const moonlightIntensity = Math.max(100000, this.positions.moon[1] * 100000);
     state.lights[1] = new Light(vec4(...this.positions.moon), color(...this.settings.moonlightColor), moonlightIntensity);
     const moonMatrix = Mat4.identity()
-      .times(Mat4.rotation(state.animation_time / 5000 + 0.1, 1, 0, 1))
+      .times(Mat4.rotation(2 * Math.PI * (state.animation_time / 1000) * (this.settings.rotationsPerMinute / 60), 1, 0, 1))
       .times(Mat4.translation(0, -65, 0))
       .times(Mat4.scale(1, 1, 1))
     this.positions.moon = [...moonMatrix.times(vec4(0, 0, 0, 1))];
