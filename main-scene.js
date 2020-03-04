@@ -17,15 +17,53 @@ const {
   vec4,
 } = tiny;
 
+function lerp(x, y, factor) {
+  return x + (y - x) * factor;
+}
+
 function lerpRGB(colorA, colorB, factor = 0.5) {
   return [
-    colorA[0] + (colorB[0]-colorA[0]) * factor,
-    colorA[1] + (colorB[1]-colorA[1]) * factor,
-    colorA[2] + (colorB[2]-colorA[2]) * factor,
-    colorA[3] + (colorB[3]-colorA[3]) * factor,
+    lerp(colorA[0], colorB[0], factor),
+    lerp(colorA[1], colorB[1], factor),
+    lerp(colorA[2], colorB[2], factor),
+    lerp(colorA[3], colorB[3], factor),
   ];
 }
 
+function clamp(value, max = 1, min = -1) {
+  return Math.max(min, Math.min(max, value));
+}
+
+// 1   - ?        240,248,255
+// .5  - #f8b195  248,177,149
+// .4  - #f67280  246,114,128
+// .3  - #c06c84  192,108,132
+// .1  - #6c5b7b   108,91,123
+// -.2 - #355c7d    53,92,125
+// -1  - ?           25,25,50
+function getColorFromSpectrum(value) {
+  const clampedValue = clamp(value);
+  if (.4 <= clampedValue && clampedValue <= 1) {
+    const normalizedValue = (clampedValue - 0.4) / 0.6;
+    return lerpRGB([248/255, 177/255, 149/255, 1], [240/255, 248/255, 255/255, 1], normalizedValue);
+  } else if (.2 <= clampedValue && clampedValue < .4) {
+    const normalizedValue = (clampedValue - 0.2) / 0.2;
+    return lerpRGB([246/255, 114/255, 128/255, 1], [248/255, 177/255, 149/255, 1], normalizedValue);
+  } else if (.1 <= clampedValue && clampedValue < .2) {
+    const normalizedValue = (clampedValue - 0.1) / 0.1;
+    return lerpRGB([192/255, 108/255, 132/255, 1], [246/255, 114/255, 128/255, 1], normalizedValue);
+  } else if (-.1 <= clampedValue && clampedValue < .1) {
+    const normalizedValue = (clampedValue + 0.1) / 0.2;
+    return lerpRGB([108/255, 91/255, 123/255, 1], [192/255, 108/255, 132/255, 1], normalizedValue);
+  } else if (-.2 <= clampedValue && clampedValue < -.1) {
+    const normalizedValue = (clampedValue + .2) / 0.1;
+    return lerpRGB([53/255, 92/255, 125/255, 1], [108/255, 91/255, 123/255, 1], normalizedValue);
+  } else if (-1 <= clampedValue && clampedValue < -0.2) {
+    const normalizedValue = (clampedValue + 1) / .8;
+    return lerpRGB([25/255, 25/255, 50/255, 1], [53/255, 92/255, 125/255, 1], normalizedValue);
+  }
+  return [0, 0, 0, 1];
+}
 
 class MainScene extends Scene {
   constructor() {
@@ -39,16 +77,20 @@ class MainScene extends Scene {
     }
 
     this.settings = {
-      fogColor: [.3, .8, .9, 0],
-      fogIntensity: 0.4,
+      fogColor: [240/255, 248/255, 255/255, 1],
+      fogIntensity: 0.25,
       groundColor: [.5, .6, .4, 1],
       groundOptions: {
         columnDivisions: 16,
         rowDivisions: 10,
-        bumpiness: 0.02,
-        rowNoiseFactor: .8,
-        colNoiseFactor: .8,
-      }
+        bumpiness: 0.035,
+        rowNoiseFactor: .7,
+        colNoiseFactor: .7,
+      },
+      sunColor: [1, 1, 1, 1],
+      sunlightColor: [255/255, 244/255, 229/255, 1],
+      moonColor: [255/255, 244/255, 229/255, 1],
+      moonlightColor: [.7, .7, 1, 1],
     }
 
     this.shapes = {
@@ -58,16 +100,19 @@ class MainScene extends Scene {
     };
 
     this.shaders = {
-      phongWithFog: new Phong_With_Fog_Shader(1, color(...this.settings.fogColor), this.settings.fogIntensity),
+      phongWithFog: new Phong_With_Fog_Shader(2, color(...this.settings.fogColor), this.settings.fogIntensity),
     }
 
     this.materials = {
-      ground: new Material(this.shaders.phongWithFog, { ambient: .5, diffusivity: .7, specularity: .2, color: color(...this.settings.groundColor) }),
-      light: new Material(this.shaders.phongWithFog, { ambient: 1, color: color(1, 1, 1, 1) }),
+      ground: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .7, specularity: .2, color: color(...this.settings.groundColor) }),
+      metal: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .2, specularity: .95, color: color(.4, .4, .6, 1) }),
+      sun: new Material(this.shaders.phongWithFog, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
+      moon: new Material(this.shaders.phongWithFog, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
     };
 
     this.positions = {
-      sun: [0, 10, 0, 1],
+      sun: [0, 0, 0, 1],
+      moon: [0, 0, 0, 1],
     }
 
     this.initialized = false;
@@ -76,7 +121,10 @@ class MainScene extends Scene {
   display(context, state) {
 
     if (!this.initialized) {
-      state.lights = [new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 1000000000)];
+      state.lights = [
+        new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), 1000000000),
+        new Light(vec4(...this.positions.sun), color(...this.settings.moonlightColor), 10000000),
+      ];
       context.context.clearColor(...this.settings.fogColor);
       if (!context.scratchpad.controls) {
         context.scratchpad.controls = new Movement_Controls();
@@ -87,28 +135,44 @@ class MainScene extends Scene {
       this.initialized = true;
       console.log(context)
       console.log(state)
-      console.log(lerpRGB(this.settings.fogColor, [1, 0, 0, 1], .5))
+      console.log(this.positions)
     }
 
-    state.lights[0] = new Light(vec4(...this.positions.sun), color(1, 1, 1, 1), 100000000);
+    const sunlightIntensity = Math.max(100000, this.positions.sun[1] * 10000000);
+    const moonlightIntensity = Math.max(100000, this.positions.moon[1] * 100000);
+    state.lights[0] = new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), sunlightIntensity);
+    state.lights[1] = new Light(vec4(...this.positions.moon), color(...this.settings.moonlightColor), moonlightIntensity);
+    const sunMatrix = Mat4.identity()
+      .times(Mat4.rotation(state.animation_time / 10000, 1, 0, 1))
+      .times(Mat4.translation(0, 60, 0))
+      .times(Mat4.scale(2, 2, 2))
+    this.positions.sun = [...sunMatrix.times(vec4(0, 0, 0, 1))]
+
+    const moonMatrix = Mat4.identity()
+      .times(Mat4.rotation(state.animation_time / 10000 + 0.1, 1, 0, 1))
+      .times(Mat4.translation(0, -60, 0))
+      .times(Mat4.scale(1, 1, 1))
+    this.positions.moon = [...moonMatrix.times(vec4(0, 0, 0, 1))];
+  
+    this.shapes.sphere.draw(context, state, sunMatrix, this.materials.sun );
+    this.shapes.sphere.draw(context, state, moonMatrix, this.materials.moon );
+
 
     const ground_matrix = Mat4.identity()
-      .times(Mat4.scale(40, 40, 40))
+      .times(Mat4.scale(50, 50, 50))
       .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
-    
     this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
 
-    this.shapes.cube.draw(context, state, Mat4.translation(0, .5, 0), this.materials.ground);
+    this.shapes.cube.draw(context, state, Mat4.translation(0, 1.5, 0), this.materials.metal);
+    
+    const updatedFogColor = getColorFromSpectrum(this.positions.sun[1] / 50);
+    this.materials.ground.shader.fogColor = color(...updatedFogColor);
+    this.materials.ground.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+    this.materials.metal.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+    this.materials.ground.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
+    this.materials.metal.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
 
-    const sun_matrix = Mat4.identity()
-      .times(Mat4.translation(...this.positions.sun))
-      .times(Mat4.scale(.1, .1, .1))
-    
-    this.shapes.sphere.draw(context, state, sun_matrix, this.materials.light );
-    
-    const newColor = lerpRGB(this.settings.fogColor, [.2,.2,.2, 1], state.animation_time / 100000);
-    this.materials.ground.shader.fogColor = color(...newColor)
-    context.context.clearColor(...newColor);
+    context.context.clearColor(...updatedFogColor);
   }
 
   make_control_panel() {
