@@ -67,6 +67,10 @@ function getColorFromSpectrum(value) {
   return [0, 0, 0, 1];
 }
 
+function uniformRV(start, end) {
+  return start + Math.random() * (end - start);
+}
+
 class MainScene extends Scene {
   constructor() {
     super();
@@ -93,7 +97,29 @@ class MainScene extends Scene {
       sunlightColor: [255/255, 244/255, 229/255, 1],
       moonColor: [255/255, 244/255, 229/255, 1],
       moonlightColor: [.7, .7, 1, 1],
-      rotationsPerMinute: 5,
+      rotationsPerMinute: 1,
+      leafOptions: {
+        numberOfLeaves: 20,
+        initialReleaseInterval: 0.5,
+        releaseIntervalNoiseRange: [0, 0.25],
+        baseVelocity: [4, 1, 0],
+        noiseRange: {
+          x: [0, 1],
+          y: [0, 1],
+          z: [-1, 1],
+        },
+        sizeRange: [0.15, .85],
+        colorRange: {
+          r: [0, .6],
+          g: [.3, .6],
+          b: [0, .5],
+          a: [.5, 1],
+        },
+        baseRotationSpeed: 0.01,
+        rotationNoiseRange: [0, 0.05],
+        decaySpeed: 0.001,
+        removalThreshold: 0.1,
+      }
     }
 
     this.shapes = {
@@ -130,13 +156,28 @@ class MainScene extends Scene {
 
   generateLeaf() {
     const spawnRadius = 2;
-    const uniformRadius = ((Math.random() - 0.5) * 2) * spawnRadius;
+    const uniformRadius = uniformRV(-1, 1) * spawnRadius;
+    const {
+      baseVelocity,
+      noiseRange,
+      sizeRange,
+      colorRange,
+    } = this.settings.leafOptions;
     return { 
       position: [uniformRadius, 5 + uniformRadius, uniformRadius, 1], 
-      size: 0.1 + Math.random() * .75, 
-      rotation: [Math.random() * 2 * Math.PI, Math.random(), Math.random(), Math.random()],
-      color: [Math.random() * .4, .3 + Math.random() * .3, Math.random() * .5, 1],
-      velocity: [(4 + Math.random() * 1) / 100, 0, (Math.random() * 2 - 1) / 100],
+      size: uniformRV(...sizeRange), 
+      rotation: [uniformRV(0, Math.PI * 2), Math.random(), Math.random(), Math.random()],
+      color: [
+        uniformRV(...colorRange.r), 
+        uniformRV(...colorRange.g), 
+        uniformRV(...colorRange.b), 
+        uniformRV(...colorRange.a)
+      ],
+      velocity: [
+        (baseVelocity[0] + uniformRV(...noiseRange.x)) / 100, 
+        (baseVelocity[1] + uniformRV(...noiseRange.y)) / 100, 
+        (baseVelocity[2] + uniformRV(...noiseRange.z)) / 100
+      ],
     };
   }
 
@@ -152,11 +193,15 @@ class MainScene extends Scene {
       state.set_camera(Mat4.look_at(vec3(0, 10, 25), vec3(0, 0, -50), vec3(0, 1, 0)));
     }
     state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
-    this.particles.leaves = [...Array(20)];
-    this.particles.leaves.forEach((x, i) => {
-      setTimeout(() => this.particles.leaves[i] = this.generateLeaf(), i * 500 + Math.random() * 250)
+    this.particles.leaves = [...Array(this.settings.leafOptions.numberOfLeaves)];
+    this.particles.leaves.forEach((_, i) => {
+      const {
+        initialReleaseInterval,
+        releaseIntervalNoiseRange,
+      } = this.settings.leafOptions;
+      setTimeout(() => this.particles.leaves[i] = this.generateLeaf(), 
+      i * initialReleaseInterval * 1000 + uniformRV(...releaseIntervalNoiseRange) * 1000)
     })
-    setTimeout(() => { console.log(this.particles.leaves) }, 10000)
     this.initialized = true;
   }
 
@@ -199,6 +244,34 @@ class MainScene extends Scene {
     context.context.clearColor(...updatedFogColor);
   }
 
+  updateLeaves(context, state) {
+    for (let i = 0; i < this.particles.leaves.length; i++) {
+      const currentLeaf = this.particles.leaves[i];
+      if (currentLeaf == null) continue;
+      const {
+        baseRotationSpeed,
+        rotationNoiseRange,
+        decaySpeed,
+        removalThreshold,
+      } = this.settings.leafOptions;
+      if (currentLeaf.size <= removalThreshold) {
+        this.particles.leaves[i] = this.generateLeaf()
+      }
+
+      currentLeaf.position[0] += currentLeaf.velocity[0]
+      currentLeaf.position[1] += currentLeaf.velocity[1]
+      currentLeaf.position[2] += currentLeaf.velocity[2]
+      currentLeaf.size = lerp(currentLeaf.size, 0, decaySpeed);
+      currentLeaf.rotation[0] += baseRotationSpeed + uniformRV(...rotationNoiseRange);
+      const scaling = currentLeaf.size;
+      const matrix = Mat4.translation(...currentLeaf.position)
+        .times(Mat4.scale(scaling, scaling, scaling))
+        .times(Mat4.rotation(...currentLeaf.rotation))
+
+      this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: currentLeaf.color}));
+    }
+  }
+
   display(context, state) {
     if (!this.initialized) this.initializeScene(context, state);
     this.updateSun(context, state);
@@ -207,23 +280,8 @@ class MainScene extends Scene {
     this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
 
     this.updateSky(context, state); 
-
-    for (let i = 0; i < this.particles.leaves.length; i++) {
-      if (this.particles.leaves[i] == null) continue;
-      if (this.particles.leaves[i].position[0] > 50) {
-        this.particles.leaves[i] = this.generateLeaf()
-      }
-      this.particles.leaves[i].position[0] += this.particles.leaves[i].velocity[0]
-      this.particles.leaves[i].position[1] += this.particles.leaves[i].velocity[1]
-      this.particles.leaves[i].position[2] += this.particles.leaves[i].velocity[2]
-      this.particles.leaves[i].size = lerp(this.particles.leaves[i].size, 0, 0.001);
-      const scaling = this.particles.leaves[i].size;
-      const matrix = Mat4.translation(...this.particles.leaves[i].position)
-        .times(Mat4.scale(scaling, scaling, scaling))
-        .times(Mat4.rotation(...this.particles.leaves[i].rotation))
-
-      this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: this.particles.leaves[i].color}));
-    }
+    this.updateLeaves(context, state);
+    
   }
 
   make_control_panel() {}
