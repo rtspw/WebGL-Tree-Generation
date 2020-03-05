@@ -4,6 +4,7 @@ import { Movement_Controls } from './scene-components.js';
 import Phong_Shader from './shaders/phong-shader.js';
 import Phong_With_Fog_Shader from './shaders/phong-with-fog-shader.js';
 
+import Leaf from './shapes/leaf.js';
 import OffsetSquare from './shapes/offset-square.js';
 import Subdivision_Sphere from './shapes/subdivision-sphere.js';
 import Cube from './shapes/cube.js';
@@ -96,6 +97,7 @@ class MainScene extends Scene {
     }
 
     this.shapes = {
+      leaf: new Leaf(),
       sphere: new Subdivision_Sphere(4),
       cube: new Cube(),
       offsetSquare: new OffsetSquare(this.settings.groundOptions),
@@ -111,6 +113,7 @@ class MainScene extends Scene {
       metal: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .2, specularity: .95, color: color(.4, .4, .6, 1) }),
       sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
       moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
+      leaf: new Material(this.shaders.phong, { ambient: .5, specularity: 0 }),
     };
 
     this.positions = {
@@ -118,7 +121,23 @@ class MainScene extends Scene {
       moon: [0, 0, 0, 1],
     }
 
+    this.particles = {
+      leaves: []
+    }
+
     this.initialized = false;
+  }
+
+  generateLeaf() {
+    const spawnRadius = 2;
+    const uniformRadius = ((Math.random() - 0.5) * 2) * spawnRadius;
+    return { 
+      position: [uniformRadius, 5 + uniformRadius, uniformRadius, 1], 
+      size: 0.1 + Math.random() * .75, 
+      rotation: [Math.random() * 2 * Math.PI, Math.random(), Math.random(), Math.random()],
+      color: [Math.random() * .4, .3 + Math.random() * .3, Math.random() * .5, 1],
+      velocity: [(4 + Math.random() * 1) / 100, 0, (Math.random() * 2 - 1) / 100],
+    };
   }
 
   initializeScene(context, state) {
@@ -133,6 +152,11 @@ class MainScene extends Scene {
       state.set_camera(Mat4.look_at(vec3(0, 10, 25), vec3(0, 0, -50), vec3(0, 1, 0)));
     }
     state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
+    this.particles.leaves = [...Array(20)];
+    this.particles.leaves.forEach((x, i) => {
+      setTimeout(() => this.particles.leaves[i] = this.generateLeaf(), i * 500 + Math.random() * 250)
+    })
+    setTimeout(() => { console.log(this.particles.leaves) }, 10000)
     this.initialized = true;
   }
 
@@ -180,8 +204,26 @@ class MainScene extends Scene {
     this.updateSun(context, state);
     this.updateMoon(context, state);
     this.updateGround(context, state);
-    this.shapes.cube.draw(context, state, Mat4.translation(0, 1.5, 0), this.materials.metal);
-    this.updateSky(context, state);
+    this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
+
+    this.updateSky(context, state); 
+
+    for (let i = 0; i < this.particles.leaves.length; i++) {
+      if (this.particles.leaves[i] == null) continue;
+      if (this.particles.leaves[i].position[0] > 50) {
+        this.particles.leaves[i] = this.generateLeaf()
+      }
+      this.particles.leaves[i].position[0] += this.particles.leaves[i].velocity[0]
+      this.particles.leaves[i].position[1] += this.particles.leaves[i].velocity[1]
+      this.particles.leaves[i].position[2] += this.particles.leaves[i].velocity[2]
+      this.particles.leaves[i].size = lerp(this.particles.leaves[i].size, 0, 0.001);
+      const scaling = this.particles.leaves[i].size;
+      const matrix = Mat4.translation(...this.particles.leaves[i].position)
+        .times(Mat4.scale(scaling, scaling, scaling))
+        .times(Mat4.rotation(...this.particles.leaves[i].rotation))
+
+      this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: this.particles.leaves[i].color}));
+    }
   }
 
   make_control_panel() {}
