@@ -84,12 +84,20 @@ class MainScene extends Scene {
 
     this.settings = {
       fogColor: [240/255, 248/255, 255/255, 1],
-      fogIntensity: 0.25,
+      fogIntensity: 0.3,
       groundColor: [.5, .6, .4, 1],
       groundOptions: {
-        columnDivisions: 16,
+        columnDivisions: 20,
+        rowDivisions: 15,
+        bumpiness: 0.02,
+        rowNoiseFactor: .7,
+        colNoiseFactor: .7,
+      },
+      mountainColor: [.1, .1, .1, 1],
+      mountainOptions: {
+        columnDivisions: 10,
         rowDivisions: 10,
-        bumpiness: 0.035,
+        bumpiness: 0.25,
         rowNoiseFactor: .7,
         colNoiseFactor: .7,
       },
@@ -98,8 +106,9 @@ class MainScene extends Scene {
       moonColor: [255/255, 244/255, 229/255, 1],
       moonlightColor: [.7, .7, 1, 1],
       rotationsPerMinute: 1,
+      initialSunOffset: 11 * Math.PI / 8,
       leafOptions: {
-        numberOfLeaves: 20,
+        numberOfLeaves: 10,
         initialReleaseInterval: 0.5,
         releaseIntervalNoiseRange: [0, 0.25],
         baseVelocity: [4, 1, 0],
@@ -117,7 +126,7 @@ class MainScene extends Scene {
         },
         baseRotationSpeed: 0.01,
         rotationNoiseRange: [0, 0.05],
-        decaySpeed: 0.001,
+        decaySpeed: 0.005,
         removalThreshold: 0.1,
       }
     }
@@ -127,6 +136,7 @@ class MainScene extends Scene {
       sphere: new Subdivision_Sphere(4),
       cube: new Cube(),
       offsetSquare: new OffsetSquare(this.settings.groundOptions),
+      offsetSquare2: new OffsetSquare(this.settings.mountainOptions)
     };
 
     this.shaders = {
@@ -136,6 +146,7 @@ class MainScene extends Scene {
 
     this.materials = {
       ground: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .7, specularity: .2, color: color(...this.settings.groundColor) }),
+      mountain: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .9, specularity: .2, color: [.1, .1, .1, 1] }),
       metal: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .2, specularity: .95, color: color(.4, .4, .6, 1) }),
       sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
       moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
@@ -202,22 +213,30 @@ class MainScene extends Scene {
       setTimeout(() => this.particles.leaves[i] = this.generateLeaf(), 
       i * initialReleaseInterval * 1000 + uniformRV(...releaseIntervalNoiseRange) * 1000)
     })
+    context.context.enable(context.context.CULL_FACE)
+    context.context.cullFace(context.context.BACK);
     this.initialized = true;
   }
 
-  updateGround(context, state) {
+  updateTerrain(context, state) {
     const ground_matrix = Mat4.identity()
-      .times(Mat4.scale(50, 50, 50))
+      .times(Mat4.scale(60, 60, 60))
       .times(Mat4.rotation(-Math.PI / 2, 1, 0, 0))
     this.shapes.offsetSquare.draw(context, state, ground_matrix, this.materials.ground);
+    const mountain_matrix = Mat4.identity()
+    .times(Mat4.translation(-50, 10, -30))
+    .times(Mat4.scale(60, 60, 60))
+     .times(Mat4.rotation(Math.PI / 4, 0, 1, 0))
+    .times(Mat4.rotation(-Math.PI / 3, 1, 0, 0))
+    this.shapes.offsetSquare2.draw(context, state, mountain_matrix, this.materials.mountain);
   }
 
   updateSun(context, state) {
     const sunlightIntensity = Math.max(100000, this.positions.sun[1] * 10000000);
     state.lights[0] = new Light(vec4(...this.positions.sun), color(...this.settings.sunlightColor), sunlightIntensity);
     const sunMatrix = Mat4.identity()
-      .times(Mat4.rotation(2 * Math.PI * (state.animation_time / 1000) * (this.settings.rotationsPerMinute / 60), 1, 0, 1))
-      .times(Mat4.translation(0, 65, 0))
+      .times(Mat4.rotation(this.settings.initialSunOffset + 2 * Math.PI * (state.animation_time / 1000) * (this.settings.rotationsPerMinute / 60), 1, 0, 1))
+      .times(Mat4.translation(0, 75, 0))
       .times(Mat4.scale(2, 2, 2))
     this.positions.sun = [...sunMatrix.times(vec4(0, 0, 0, 1))]
     this.shapes.sphere.draw(context, state, sunMatrix, this.materials.sun );
@@ -227,8 +246,8 @@ class MainScene extends Scene {
     const moonlightIntensity = Math.max(100000, this.positions.moon[1] * 100000);
     state.lights[1] = new Light(vec4(...this.positions.moon), color(...this.settings.moonlightColor), moonlightIntensity);
     const moonMatrix = Mat4.identity()
-      .times(Mat4.rotation(2 * Math.PI * (state.animation_time / 1000) * (this.settings.rotationsPerMinute / 60), 1, 0, 1))
-      .times(Mat4.translation(0, -65, 0))
+      .times(Mat4.rotation(this.settings.initialSunOffset + 2 * Math.PI * (state.animation_time / 1000) * (this.settings.rotationsPerMinute / 60), 1, 0, 1))
+      .times(Mat4.translation(0, -75, 0))
       .times(Mat4.scale(1, 1, 1))
     this.positions.moon = [...moonMatrix.times(vec4(0, 0, 0, 1))];
     this.shapes.sphere.draw(context, state, moonMatrix, this.materials.moon );
@@ -238,9 +257,12 @@ class MainScene extends Scene {
     const updatedFogColor = getColorFromSpectrum(this.positions.sun[1] / 50);
     this.materials.ground.shader.fogColor = color(...updatedFogColor);
     this.materials.ground.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+    this.materials.mountain.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.metal.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.ground.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
+    this.materials.mountain.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.metal.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
+    
     context.context.clearColor(...updatedFogColor);
   }
 
@@ -263,12 +285,13 @@ class MainScene extends Scene {
       currentLeaf.position[2] += currentLeaf.velocity[2]
       currentLeaf.size = lerp(currentLeaf.size, 0, decaySpeed);
       currentLeaf.rotation[0] += baseRotationSpeed + uniformRV(...rotationNoiseRange);
-      const scaling = currentLeaf.size;
       const matrix = Mat4.translation(...currentLeaf.position)
-        .times(Mat4.scale(scaling, scaling, scaling))
+        .times(Mat4.scale(currentLeaf.size, currentLeaf.size, currentLeaf.size))
         .times(Mat4.rotation(...currentLeaf.rotation))
 
+      context.context.disable(context.context.CULL_FACE)
       this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: currentLeaf.color}));
+      context.context.enable(context.context.CULL_FACE)
     }
   }
 
@@ -276,12 +299,10 @@ class MainScene extends Scene {
     if (!this.initialized) this.initializeScene(context, state);
     this.updateSun(context, state);
     this.updateMoon(context, state);
-    this.updateGround(context, state);
+    this.updateTerrain(context, state);
     this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
-
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
-    
   }
 
   make_control_panel() {}
