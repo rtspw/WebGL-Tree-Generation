@@ -4,6 +4,8 @@ import { widgets } from './tiny-graphics-widgets.js';
 
 import MainScene from './main-scene.js';
 
+import './index.css';
+
 const rootDiv = document.getElementById('main-canvas');
 const scenes = [new MainScene()];
 
