@@ -127,7 +127,7 @@ class MainScene extends Scene {
         baseRotationSpeed: 0.01,
         rotationNoiseRange: [0, 0.05],
         decaySpeed: 0.005,
-        removalThreshold: 0.1,
+        removalThreshold: 0.05,
       }
     }
 
@@ -305,7 +305,42 @@ class MainScene extends Scene {
     this.updateLeaves(context, state);
   }
 
-  make_control_panel() {}
+  make_control_panel() {
+    this.live_string(elem => {elem.textContent = `Leaf size lower bound: ${this.settings.leafOptions.sizeRange[0].toFixed(3)}`});
+    this.new_line()
+    this.live_string(elem => {elem.textContent = `Leaf size upper bound: ${this.settings.leafOptions.sizeRange[1].toFixed(3)}`});
+    this.new_line();
+    this.key_triggered_button('Increase leaf size lower bound', [], () => this.settings.leafOptions.sizeRange[0] += 0.1);
+    this.key_triggered_button('Increase leaf size upper bound', [], () => this.settings.leafOptions.sizeRange[1] += 0.1);
+    this.new_line();
+    this.live_string(elem => {elem.textContent = `Day/night cycles per minute: ${this.settings.rotationsPerMinute.toFixed(3)}`});
+    this.new_line();
+    this.key_triggered_button('Increase day/night speed', [''], () => this.settings.rotationsPerMinute += .1);
+    this.key_triggered_button('Decrease day/night speed', [''], () => this.settings.rotationsPerMinute -= .1);
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `Ground Bumpiness: ${this.settings.groundOptions.bumpiness.toFixed(3)}`});
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `Row Divisions: ${this.settings.groundOptions.rowDivisions.toFixed(3)}`});
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `Column Divisions: ${this.settings.groundOptions.columnDivisions.toFixed(3)}`});
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `Row Noise: ${this.settings.groundOptions.rowNoiseFactor.toFixed(3)}`});
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}`});
+    this.new_line();
+    this.key_triggered_button('Generate new ground', [''], () => { this.shapes.offsetSquare = new OffsetSquare(this.settings.groundOptions) });
+    this.key_triggered_button('Increase Bumpiness', [''], () => { this.settings.groundOptions.bumpiness += 0.01 });
+    this.key_triggered_button('Decrease Bumpiness', [''], () => { this.settings.groundOptions.bumpiness -= 0.01 });
+    this.key_triggered_button('Increase Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions += 1 });
+    this.key_triggered_button('Decrease Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions -= 1 });
+    this.key_triggered_button('Increase Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions += 1 });
+    this.key_triggered_button('Decrease Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions -= 1 });
+    this.key_triggered_button('Increase Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor += 0.01 });
+    this.key_triggered_button('Decrease Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor -= 0.01 });
+    this.key_triggered_button('Increase Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor += 0.01 });
+    this.key_triggered_button('Decrease Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
+    this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new OffsetSquare(this.settings.mountainOptions) });
+  }
 }
 
 export default MainScene;
