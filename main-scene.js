@@ -310,8 +310,8 @@ class MainScene extends Scene {
     this.new_line()
     this.live_string(elem => {elem.textContent = `Leaf size upper bound: ${this.settings.leafOptions.sizeRange[1].toFixed(3)}`});
     this.new_line();
-    this.key_triggered_button('Increase leaf size lower bound', [], () => this.settings.leafOptions.sizeRange[0] += 0.1);
-    this.key_triggered_button('Increase leaf size upper bound', [], () => this.settings.leafOptions.sizeRange[1] += 0.1);
+    this.key_triggered_button('Increase leaf size lower bound', [''], () => this.settings.leafOptions.sizeRange[0] += 0.1);
+    this.key_triggered_button('Increase leaf size upper bound', [''], () => this.settings.leafOptions.sizeRange[1] += 0.1);
     this.new_line();
     this.live_string(elem => {elem.textContent = `Day/night cycles per minute: ${this.settings.rotationsPerMinute.toFixed(3)}`});
     this.new_line();

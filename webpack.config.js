@@ -3,6 +3,7 @@ const HTMLWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   mode: 'development',
+  watch: true,
   entry: path.join(__dirname, 'index'),
   output: {
     path: path.join(__dirname, 'docs'),
