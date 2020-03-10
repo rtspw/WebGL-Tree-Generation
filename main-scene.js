@@ -136,14 +136,16 @@ class MainScene extends Scene {
         initialDirectionVector: vec3(0, 1, 0),
         baseLength: 6,
         baseRadius: 1,
-        heightNoiseRange: null,
         cutoffThreshold: 1.25,
+        leafThreshold: 2,
         lengthDecayRate: 0.9,
         radiusDecayRate: .5,
-        minSplitAngle: Math.PI / 6,
-        maxSplitAngle: Math.PI / 3,
+        minSplitAngle: 0,
+        maxSplitAngle: Math.PI / 2.5,
         branchLengthLowerBoundFactor: 0.75,
-        extraTrunkLength: 5,
+        extraTrunkLength: 2,
+        useSmoothShading: true,
+        leafSizeRange: [.15, 1.5],
       },
     }
 
@@ -153,7 +155,7 @@ class MainScene extends Scene {
       cube: new Cube(),
       offsetSquare: new OffsetSquare(this.settings.groundOptions),
       offsetSquare2: new OffsetSquare(this.settings.mountainOptions),
-      treebark: new TreeBark(1 - this.settings.treeOptions.radiusDecayRate),
+      treebark: new TreeBark(1 - this.settings.treeOptions.radiusDecayRate, this.settings.treeOptions.useSmoothShading),
     };
 
     this.shaders = {
@@ -168,7 +170,7 @@ class MainScene extends Scene {
       sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
       moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
       leaf: new Material(this.shaders.phong, { ambient: .5, specularity: 0 }),
-      tree: new Material(this.shaders.phong, {ambient: .3, diffusivity: .5, specularity: .05, color: color(.59, .29, 0, 1)}),
+      tree: new Material(this.shaders.phong, {ambient: .3, diffusivity: .3, specularity: .01, color: color(.59, .29, 0, 1)}),
     };
 
     this.positions = {
@@ -180,14 +182,20 @@ class MainScene extends Scene {
       leaves: []
     }
 
-    this.branches = new TreeGenerator(this.settings.treeOptions).generateTree();
+    const generatedTree = new TreeGenerator(this.settings.treeOptions).generateTree();
+    this.branches = generatedTree.branches;
+    this.leaves = generatedTree.leaves.map(leafPosition => {
+      const uniqueLeaf = this.generateLeaf({sizeRange: this.settings.leafOptions.sizeRange}, true)
+      uniqueLeaf.position = [...leafPosition];
+      return uniqueLeaf;
+    });
 
-    console.log(this.branches)
+    console.log(this.leaves)
 
     this.initialized = false;
   }
 
-  generateLeaf() {
+  generateLeaf(overrideOptions = {}, isStatic = false) {
     const spawnRadius = 8;
     const uniformRadius = uniformRV(-1, 1) * spawnRadius;
     const {
@@ -195,7 +203,20 @@ class MainScene extends Scene {
       noiseRange,
       sizeRange,
       colorRange,
-    } = this.settings.leafOptions;
+    } = {...this.settings.leafOptions, ...overrideOptions};
+    if (isStatic) {
+      return {
+        position: [0,0,0,1],
+        size: uniformRV(...sizeRange),
+        rotation: [uniformRV(0, Math.PI * 2), Math.random(), Math.random(), Math.random()],
+        color: [
+          uniformRV(...colorRange.r), 
+          uniformRV(...colorRange.g), 
+          uniformRV(...colorRange.b), 
+          uniformRV(...colorRange.a)
+        ],
+      }
+    }
     return { 
       position: [uniformRadius, 13 + uniformRadius, uniformRadius, 1], 
       size: uniformRV(...sizeRange), 
@@ -281,8 +302,6 @@ class MainScene extends Scene {
     this.materials.ground.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.mountain.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.metal.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
-    this.materials.tree.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
-
     this.materials.ground.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.mountain.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.metal.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
@@ -327,11 +346,7 @@ class MainScene extends Scene {
     this.updateTerrain(context, state);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
-    
-
     for (const branch of this.branches) {
-      const size = branch.radius * .1;
-      // this.shapes.cube.draw(context, state, Mat4.translation(...branch.rootPosition).times(Mat4.scale(size, size, size)), this.materials.metal);
       const normalizedDirection = branch.directionVector.normalized();
       const rotationAxis = normalizedDirection.cross(vec3(0,1,0));
       const rotationMatrix = normalizedDirection.equals(vec3(0,1,0)) ? Mat4.rotation(0,0,1,0) : Mat4.rotation(-Math.acos(normalizedDirection.dot(vec3(0,1,0))), ...rotationAxis);
@@ -339,9 +354,16 @@ class MainScene extends Scene {
         .times(Mat4.translation(...branch.rootPosition))
         .times(rotationMatrix)
         .times(Mat4.scale(branch.radius, branch.height, branch.radius))
-
-
       this.shapes.treebark.draw(context, state, matrix, this.materials.tree.override({color: color(.6,.3, .45, 1)}));
+    }
+    for (const currentLeaf of this.leaves) {
+      const matrix = Mat4.translation(...currentLeaf.position)
+        .times(Mat4.scale(currentLeaf.size, currentLeaf.size, currentLeaf.size))
+        .times(Mat4.rotation(...currentLeaf.rotation))
+
+      context.context.disable(context.context.CULL_FACE)
+      this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: currentLeaf.color}));
+      context.context.enable(context.context.CULL_FACE)
     }
   }
 
@@ -360,13 +382,19 @@ class MainScene extends Scene {
     this.new_line();
     this.live_string(elem => { elem.textContent = `Ground Bumpiness: ${this.settings.groundOptions.bumpiness.toFixed(3)}`});
     this.new_line();
-    this.live_string(elem => { elem.textContent = `Row Divisions: ${this.settings.groundOptions.rowDivisions.toFixed(3)}`});
+    this.live_string(elem => { 
+      elem.textContent = `
+        Row Divisions: ${this.settings.groundOptions.rowDivisions.toFixed(3)}
+        Column Divisions: ${this.settings.groundOptions.columnDivisions.toFixed(3)}
+      `
+    });
     this.new_line();
-    this.live_string(elem => { elem.textContent = `Column Divisions: ${this.settings.groundOptions.columnDivisions.toFixed(3)}`});
-    this.new_line();
-    this.live_string(elem => { elem.textContent = `Row Noise: ${this.settings.groundOptions.rowNoiseFactor.toFixed(3)}`});
-    this.new_line();
-    this.live_string(elem => { elem.textContent = `Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}`});
+    this.live_string(elem => { 
+      elem.textContent = `
+        Row Noise: ${this.settings.groundOptions.rowNoiseFactor.toFixed(3)}
+        Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}
+      `
+    });
     this.new_line();
     this.key_triggered_button('Generate new ground', [''], () => { this.shapes.offsetSquare = new OffsetSquare(this.settings.groundOptions) });
     this.key_triggered_button('(+) Bumpiness', [''], () => { this.settings.groundOptions.bumpiness += 0.01 });
@@ -381,8 +409,18 @@ class MainScene extends Scene {
     this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new OffsetSquare(this.settings.mountainOptions) });
     this.key_triggered_button('Generate new tree', [''], () => { 
-      this.branches = new TreeGenerator().generateTree()
+      const newTree = new TreeGenerator(this.settings.treeOptions).generateTree();
+      this.branches = newTree.branches;
+      this.leaves = newTree.leaves.map(leafPosition => {
+        const uniqueLeaf = this.generateLeaf({sizeRange: this.settings.leafOptions.sizeRange}, true)
+        uniqueLeaf.position = [...leafPosition];
+        return uniqueLeaf;
+      });
     });
+    this.key_triggered_button('Toggle tree shading', [''], () => {
+      this.settings.treeOptions.useSmoothShading = !this.settings.treeOptions.useSmoothShading;
+      this.shapes.treebark = new TreeBark(1 - this.settings.treeOptions.radiusDecayRate, this.settings.treeOptions.useSmoothShading)
+    })
   }
 }
 
