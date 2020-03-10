@@ -136,21 +136,19 @@ class TreeGenerator {
     const {
       initialDirectionVector = vec3(0, 1, 0),
       baseLength = 6,
-      baseRadius = 4,
-      heightNoiseRange = null,
+      baseRadius = 1,
       cutoffThreshold = 1,
       lengthDecayRate = 0.9,
       radiusDecayRate = 0.5,
       minSplitAngle = Math.PI / 6,
       maxSplitAngle = Math.PI / 3,
-      branchLengthLowerBoundFactor = 0.5,
-      extraTrunkLength = 0,
+      branchLengthLowerBoundFactor = 0.75,
+      extraTrunkLength = 4,
     } = parameters;
     Object.assign(this, {
       initialDirectionVector,
       baseLength,
       baseRadius,
-      heightNoiseRange,
       cutoffThreshold,
       lengthDecayRate,
       radiusDecayRate,
@@ -172,7 +170,7 @@ class TreeGenerator {
     const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength + this.extraTrunkLength, this.baseRadius);
     branches.push(trunk);
     const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength + this.extraTrunkLength));
-    this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
+    this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.radiusDecayRate)
     return branches;
   }
 
@@ -379,7 +377,7 @@ class MainScene extends Scene {
       groundOptions: {
         columnDivisions: 20,
         rowDivisions: 15,
-        bumpiness: 0.02,
+        bumpiness: 0.05,
         rowNoiseFactor: .7,
         colNoiseFactor: .7,
       },
@@ -422,11 +420,11 @@ class MainScene extends Scene {
       treeOptions: {
         initialDirectionVector: vec3(0, 1, 0),
         baseLength: 6,
-        baseRadius: 4,
+        baseRadius: 1,
         heightNoiseRange: null,
-        cutoffThreshold: 1,
+        cutoffThreshold: 1.25,
         lengthDecayRate: 0.9,
-        radiusDecayRate: 0.5,
+        radiusDecayRate: .5,
         minSplitAngle: Math.PI / 6,
         maxSplitAngle: Math.PI / 3,
         branchLengthLowerBoundFactor: 0.75,
@@ -439,7 +437,8 @@ class MainScene extends Scene {
       sphere: new _shapes_subdivision_sphere_js__WEBPACK_IMPORTED_MODULE_6__["default"](4),
       cube: new _shapes_cube_js__WEBPACK_IMPORTED_MODULE_7__["default"](),
       offsetSquare: new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.groundOptions),
-      offsetSquare2: new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.mountainOptions)
+      offsetSquare2: new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.mountainOptions),
+      treebark: new _shapes_tree_bark_js__WEBPACK_IMPORTED_MODULE_8__["default"](1 - this.settings.treeOptions.radiusDecayRate),
     };
 
     this.shaders = {
@@ -454,6 +453,7 @@ class MainScene extends Scene {
       sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
       moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
       leaf: new Material(this.shaders.phong, { ambient: .5, specularity: 0 }),
+      tree: new Material(this.shaders.phong, {ambient: .3, diffusivity: .5, specularity: .05, color: color(.59, .29, 0, 1)}),
     };
 
     this.positions = {
@@ -473,7 +473,7 @@ class MainScene extends Scene {
   }
 
   generateLeaf() {
-    const spawnRadius = 2;
+    const spawnRadius = 8;
     const uniformRadius = uniformRV(-1, 1) * spawnRadius;
     const {
       baseVelocity,
@@ -482,7 +482,7 @@ class MainScene extends Scene {
       colorRange,
     } = this.settings.leafOptions;
     return { 
-      position: [uniformRadius, 5 + uniformRadius, uniformRadius, 1], 
+      position: [uniformRadius, 13 + uniformRadius, uniformRadius, 1], 
       size: uniformRV(...sizeRange), 
       rotation: [uniformRV(0, Math.PI * 2), Math.random(), Math.random(), Math.random()],
       color: [
@@ -566,10 +566,13 @@ class MainScene extends Scene {
     this.materials.ground.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.mountain.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.metal.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+    this.materials.tree.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+
     this.materials.ground.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.mountain.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.metal.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
-    
+    this.materials.tree.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
+
     context.context.clearColor(...updatedFogColor);
   }
 
@@ -609,11 +612,21 @@ class MainScene extends Scene {
     this.updateTerrain(context, state);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
-    this.shapes
+    
 
     for (const branch of this.branches) {
       const size = branch.radius * .1;
-      this.shapes.cube.draw(context, state, Mat4.translation(...branch.rootPosition).times(Mat4.scale(size, size, size)), this.materials.metal);
+      // this.shapes.cube.draw(context, state, Mat4.translation(...branch.rootPosition).times(Mat4.scale(size, size, size)), this.materials.metal);
+      const normalizedDirection = branch.directionVector.normalized();
+      const rotationAxis = normalizedDirection.cross(vec3(0,1,0));
+      const rotationMatrix = normalizedDirection.equals(vec3(0,1,0)) ? Mat4.rotation(0,0,1,0) : Mat4.rotation(-Math.acos(normalizedDirection.dot(vec3(0,1,0))), ...rotationAxis);
+      const matrix = Mat4.identity()
+        .times(Mat4.translation(...branch.rootPosition))
+        .times(rotationMatrix)
+        .times(Mat4.scale(branch.radius, branch.height, branch.radius))
+
+
+      this.shapes.treebark.draw(context, state, matrix, this.materials.tree.override({color: color(.6,.3, .45, 1)}));
     }
   }
 
@@ -653,9 +666,7 @@ class MainScene extends Scene {
     this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.mountainOptions) });
     this.key_triggered_button('Generate new tree', [''], () => { 
-      this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_9__["default"]({
-        baseLength: 4,
-      }).generateTree()
+      this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_9__["default"]().generateTree()
     });
   }
 }
@@ -1805,15 +1816,41 @@ class Subdivision_Sphere extends Shape {
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _tiny_graphics_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../tiny-graphics.js */ "./tiny-graphics.js");
 
-const { Shape, Vector, Vector3 } = _tiny_graphics_js__WEBPACK_IMPORTED_MODULE_0__["tiny"];
+const { Shape, Vector3, vec3 } = _tiny_graphics_js__WEBPACK_IMPORTED_MODULE_0__["tiny"];
+
 
 class TreeBark extends Shape {                                 
-  constructor() { 
-    super( "position", "normal", "texture_coord" );                           
-    this.arrays.position = Vector3.cast([-1,-1,0], [1,-1,0], [-1,1,0], [1,1,0]);
-    this.arrays.normal = Vector3.cast([0,0,1], [0,0,1], [0,0,1], [0,0,1]);
-    this.arrays.texture_coord = Vector.cast([0,0], [1,0], [0,1], [1,1]);
-    this.indices.push(0, 1, 2, 1, 3, 2);
+  constructor(topRatio = 0.5) { 
+    super("position", "normal");                           
+    this.arrays.position = Vector3.cast(
+      [-1,0,0], [-.55,0,1], vec3(...[-1,1,0]).mix(vec3(0,1,0), topRatio),
+      [-.55,0,1], vec3(...[-.55,1,1]).mix(vec3(0,1,0), topRatio), vec3(...[-1,1,0]).mix(vec3(0,1,0), topRatio),
+      [-.55,0,1], [.55,0,1], vec3(...[-.55,1,1]).mix(vec3(0,1,0), topRatio),
+      [.55,0,1], vec3(...[.55,1,1]).mix(vec3(0,1,0), topRatio), vec3(...[-.55,1,1]).mix(vec3(0,1,0), topRatio),
+      [.55,0,1], [1,0,0], vec3(...[.55,1,1]).mix(vec3(0,1,0), topRatio),
+      [1,0,0], vec3(...[1,1,0]).mix(vec3(0,1,0), topRatio), vec3(...[.55,1,1]).mix(vec3(0,1,0), topRatio),
+      [1,0,0], [.55,0,-1], vec3(...[1,1,0]).mix(vec3(0,1,0), topRatio),
+      [.55,0,-1], vec3(...[.55,1,-1]).mix(vec3(0,1,0), topRatio), vec3(...[1,1,0]).mix(vec3(0,1,0), topRatio),
+      [.55,0,-1], [-.55,0,-1], vec3(...[.55,1,-1]).mix(vec3(0,1,0), topRatio),
+      [-.55,0,-1], vec3(...[-.55,1,-1]).mix(vec3(0,1,0), topRatio), vec3(...[.55,1,-1]).mix(vec3(0,1,0), topRatio),
+      [-.55,0,-1], [-1,0,0], vec3(...[-.55,1,-1]).mix(vec3(0,1,0), topRatio),
+      [-1,0,0], vec3(...[-1,1,0]).mix(vec3(0,1,0), topRatio), vec3(...[-.55,1,-1]).mix(vec3(0,1,0), topRatio),
+    );
+    this.arrays.normal = Vector3.cast(
+      [-.8,0,.45], [-.8,0,.45], [-.8,0,.45],
+      [-.8,0,.45], [-.8,0,.45], [-.8,0,.45],
+      [0,0,1], [0,0,1], [0,0,1],
+      [0,0,1], [0,0,1], [0,0,1],
+      [.8,0,.45], [.8,0,.45], [.8,0,.45],
+      [.8,0,.45], [.8,0,.45], [.8,0,.45],
+      [.8,0,-.45], [.8,0,-.45], [.8,0,-.45],
+      [.8,0,-.45], [.8,0,-.45], [.8,0,-.45],
+      [0,0,-1], [0,0,-1], [0,0,-1],
+      [0,0,-1], [0,0,-1], [0,0,-1],
+      [-.8,0,-.45], [-.8,0,-.45], [-.8,0,-.45],
+      [-.8,0,-.45], [-.8,0,-.45], [-.8,0,-.45],
+    );
+    console.log(this.arrays.normal)
   }
 }
 

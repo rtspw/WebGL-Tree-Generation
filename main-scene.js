@@ -92,7 +92,7 @@ class MainScene extends Scene {
       groundOptions: {
         columnDivisions: 20,
         rowDivisions: 15,
-        bumpiness: 0.02,
+        bumpiness: 0.05,
         rowNoiseFactor: .7,
         colNoiseFactor: .7,
       },
@@ -135,11 +135,11 @@ class MainScene extends Scene {
       treeOptions: {
         initialDirectionVector: vec3(0, 1, 0),
         baseLength: 6,
-        baseRadius: 4,
+        baseRadius: 1,
         heightNoiseRange: null,
-        cutoffThreshold: 1,
+        cutoffThreshold: 1.25,
         lengthDecayRate: 0.9,
-        radiusDecayRate: 0.5,
+        radiusDecayRate: .5,
         minSplitAngle: Math.PI / 6,
         maxSplitAngle: Math.PI / 3,
         branchLengthLowerBoundFactor: 0.75,
@@ -152,7 +152,8 @@ class MainScene extends Scene {
       sphere: new Subdivision_Sphere(4),
       cube: new Cube(),
       offsetSquare: new OffsetSquare(this.settings.groundOptions),
-      offsetSquare2: new OffsetSquare(this.settings.mountainOptions)
+      offsetSquare2: new OffsetSquare(this.settings.mountainOptions),
+      treebark: new TreeBark(1 - this.settings.treeOptions.radiusDecayRate),
     };
 
     this.shaders = {
@@ -167,6 +168,7 @@ class MainScene extends Scene {
       sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
       moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
       leaf: new Material(this.shaders.phong, { ambient: .5, specularity: 0 }),
+      tree: new Material(this.shaders.phong, {ambient: .3, diffusivity: .5, specularity: .05, color: color(.59, .29, 0, 1)}),
     };
 
     this.positions = {
@@ -186,7 +188,7 @@ class MainScene extends Scene {
   }
 
   generateLeaf() {
-    const spawnRadius = 2;
+    const spawnRadius = 8;
     const uniformRadius = uniformRV(-1, 1) * spawnRadius;
     const {
       baseVelocity,
@@ -195,7 +197,7 @@ class MainScene extends Scene {
       colorRange,
     } = this.settings.leafOptions;
     return { 
-      position: [uniformRadius, 5 + uniformRadius, uniformRadius, 1], 
+      position: [uniformRadius, 13 + uniformRadius, uniformRadius, 1], 
       size: uniformRV(...sizeRange), 
       rotation: [uniformRV(0, Math.PI * 2), Math.random(), Math.random(), Math.random()],
       color: [
@@ -279,10 +281,13 @@ class MainScene extends Scene {
     this.materials.ground.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.mountain.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
     this.materials.metal.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+    this.materials.tree.specularity = Math.max(0, this.positions.sun[1] / 50) / 2;
+
     this.materials.ground.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.mountain.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
     this.materials.metal.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
-    
+    this.materials.tree.ambient = Math.max(0.1, this.positions.sun[1] / 50) / 2;
+
     context.context.clearColor(...updatedFogColor);
   }
 
@@ -322,11 +327,21 @@ class MainScene extends Scene {
     this.updateTerrain(context, state);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
-    this.shapes
+    
 
     for (const branch of this.branches) {
       const size = branch.radius * .1;
-      this.shapes.cube.draw(context, state, Mat4.translation(...branch.rootPosition).times(Mat4.scale(size, size, size)), this.materials.metal);
+      // this.shapes.cube.draw(context, state, Mat4.translation(...branch.rootPosition).times(Mat4.scale(size, size, size)), this.materials.metal);
+      const normalizedDirection = branch.directionVector.normalized();
+      const rotationAxis = normalizedDirection.cross(vec3(0,1,0));
+      const rotationMatrix = normalizedDirection.equals(vec3(0,1,0)) ? Mat4.rotation(0,0,1,0) : Mat4.rotation(-Math.acos(normalizedDirection.dot(vec3(0,1,0))), ...rotationAxis);
+      const matrix = Mat4.identity()
+        .times(Mat4.translation(...branch.rootPosition))
+        .times(rotationMatrix)
+        .times(Mat4.scale(branch.radius, branch.height, branch.radius))
+
+
+      this.shapes.treebark.draw(context, state, matrix, this.materials.tree.override({color: color(.6,.3, .45, 1)}));
     }
   }
 
@@ -366,9 +381,7 @@ class MainScene extends Scene {
     this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new OffsetSquare(this.settings.mountainOptions) });
     this.key_triggered_button('Generate new tree', [''], () => { 
-      this.branches = new TreeGenerator({
-        baseLength: 4,
-      }).generateTree()
+      this.branches = new TreeGenerator().generateTree()
     });
   }
 }

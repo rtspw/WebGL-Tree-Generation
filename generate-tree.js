@@ -38,21 +38,19 @@ class TreeGenerator {
     const {
       initialDirectionVector = vec3(0, 1, 0),
       baseLength = 6,
-      baseRadius = 4,
-      heightNoiseRange = null,
+      baseRadius = 1,
       cutoffThreshold = 1,
       lengthDecayRate = 0.9,
       radiusDecayRate = 0.5,
       minSplitAngle = Math.PI / 6,
       maxSplitAngle = Math.PI / 3,
-      branchLengthLowerBoundFactor = 0.5,
-      extraTrunkLength = 0,
+      branchLengthLowerBoundFactor = 0.75,
+      extraTrunkLength = 4,
     } = parameters;
     Object.assign(this, {
       initialDirectionVector,
       baseLength,
       baseRadius,
-      heightNoiseRange,
       cutoffThreshold,
       lengthDecayRate,
       radiusDecayRate,
@@ -74,7 +72,7 @@ class TreeGenerator {
     const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength + this.extraTrunkLength, this.baseRadius);
     branches.push(trunk);
     const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength + this.extraTrunkLength));
-    this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
+    this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.radiusDecayRate)
     return branches;
   }
 
