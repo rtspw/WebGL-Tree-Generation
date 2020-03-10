@@ -26,14 +26,39 @@ function getRandomOrthogonalVector(inputVector) {
  *    initialDirectionVector: Direction it initially builds off. Starts from origin for starting position
  *    baseLength: Upper bound for length of trunk
  *    baseRadius: Upper boud for radius of trunk
+ *    branchLengthLowerBoundFactor: What fraction of the upper bound the lower bound should be
  *    cutoffThreshold: Stop recursively creating branches when length has decayed to certain number
  *    lengthDecayRate: Determines the length of the chilren branches for each recursive call
+ *    radiusDecayRate: Determines fraction of radius each recursive call should use
  *    minSplitAngle: Upper bound for angle from direction vector new branches should split
  *    maxSplitAngle: Lower bound for angle from direction vector new branches should split
  */
 class TreeGenerator {
   constructor(parameters = {}) {
-    Object.assign(this, parameters);
+    const {
+      initialDirectionVector = vec3(0, 1, 0),
+      baseLength = 6,
+      baseRadius = 4,
+      heightNoiseRange = null,
+      cutoffThreshold = 1,
+      lengthDecayRate = 0.9,
+      radiusDecayRate = 0.5,
+      minSplitAngle = Math.PI / 6,
+      maxSplitAngle = Math.PI / 3,
+      branchLengthLowerBoundFactor = 0.5,
+    } = parameters;
+    Object.assign(this, {
+      initialDirectionVector,
+      baseLength,
+      baseRadius,
+      heightNoiseRange,
+      cutoffThreshold,
+      lengthDecayRate,
+      radiusDecayRate,
+      minSplitAngle,
+      maxSplitAngle,
+      branchLengthLowerBoundFactor,
+    });
   }
 
   updateParameters(parameters = {}) {
@@ -43,10 +68,11 @@ class TreeGenerator {
   generateTree() {
     const branches = [];
     const rootPosition = vec3(0, 0, 0);
-    const trunk = new Branch(rootPosition, this.initialDirectionVector, this.baseLength, this.baseRadius);
+    const trunkLength = uniformRV(this.baseLength * this.branchLengthLowerBoundFactor, this.baseLength);
+    const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength, this.baseRadius);
     branches.push(trunk);
-    const endPoint = rootPosition.plus(this.initialDirectionVector.times(this.baseLength));
-    this.__createBranches(branches, endPoint, this.initialDirectionVector, this.baseLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
+    const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength));
+    this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
     return branches;
   }
 
@@ -64,14 +90,14 @@ class TreeGenerator {
     const normalAxis = getRandomOrthogonalVector(directionVector).times(Math.random());
     const branchVector1 = Mat4.rotation(uniformRV(this.minSplitAngle, this.maxSplitAngle), ...normalAxis).times(directionVector).to3().normalized();
     const branchVector2 = Mat4.rotation(uniformRV(-this.maxSplitAngle, -this.minSplitAngle), ...normalAxis).times(directionVector).to3().normalized();
-    const length1 = uniformRV(branchLength * 0.5, branchLength);
-    const length2 = uniformRV(branchLength * 0.5, branchLength);
+    const length1 = uniformRV(branchLength * this.branchLengthLowerBoundFactor, branchLength);
+    const length2 = uniformRV(branchLength * this.branchLengthLowerBoundFactor, branchLength);
     branches.push(new Branch(startPos, branchVector1, length1, branchRadius))
     branches.push(new Branch(startPos, branchVector2, length2, branchRadius))
     const endPoint1 = startPos.plus(branchVector1.times(length1));
     const endPoint2 = startPos.plus(branchVector2.times(length2));
-    this.__createBranches(branches, endPoint1, branchVector1, length1 * this.lengthDecayRate, branchRadius / 2);
-    this.__createBranches(branches, endPoint2, branchVector2, length2 * this.lengthDecayRate, branchRadius / 2);
+    this.__createBranches(branches, endPoint1, branchVector1, length1 * this.lengthDecayRate, branchRadius * this.radiusDecayRate);
+    this.__createBranches(branches, endPoint2, branchVector2, length2 * this.lengthDecayRate, branchRadius * this.radiusDecayRate);
   }
 }
 

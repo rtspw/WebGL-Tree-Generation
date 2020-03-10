@@ -166,13 +166,15 @@ class MainScene extends Scene {
 
     this.branches = new TreeGenerator({
       initialDirectionVector: vec3(0, 1, 0),
-      baseLength: 10,
+      baseLength: 6,
       baseRadius: 4,
       heightNoiseRange: null,
-      cutoffThreshold: 0.5,
-      lengthDecayRate: 0.7,
+      cutoffThreshold: 1,
+      lengthDecayRate: 0.9,
+      radiusDecayRate: 0.5,
       minSplitAngle: Math.PI / 6,
       maxSplitAngle: Math.PI / 3,
+      branchLengthLowerBoundFactor: 0.5,
     }).generateTree()
 
     console.log(this.branches)
@@ -218,7 +220,7 @@ class MainScene extends Scene {
       this.children.push(context.scratchpad.controls);
       state.set_camera(Mat4.look_at(vec3(0, 10, 25), vec3(0, 0, -50), vec3(0, 1, 0)));
     }
-    state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
+    state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 200);
     this.particles.leaves = [...Array(this.settings.leafOptions.numberOfLeaves)];
     this.particles.leaves.forEach((_, i) => {
       const {
@@ -318,6 +320,7 @@ class MainScene extends Scene {
     // this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
+    this.shapes
 
     for (const branch of this.branches) {
       const size = branch.radius * .1;
@@ -349,17 +352,22 @@ class MainScene extends Scene {
     this.live_string(elem => { elem.textContent = `Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}`});
     this.new_line();
     this.key_triggered_button('Generate new ground', [''], () => { this.shapes.offsetSquare = new OffsetSquare(this.settings.groundOptions) });
-    this.key_triggered_button('Increase Bumpiness', [''], () => { this.settings.groundOptions.bumpiness += 0.01 });
-    this.key_triggered_button('Decrease Bumpiness', [''], () => { this.settings.groundOptions.bumpiness -= 0.01 });
-    this.key_triggered_button('Increase Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions += 1 });
-    this.key_triggered_button('Decrease Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions -= 1 });
-    this.key_triggered_button('Increase Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions += 1 });
-    this.key_triggered_button('Decrease Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions -= 1 });
-    this.key_triggered_button('Increase Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor += 0.01 });
-    this.key_triggered_button('Decrease Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor -= 0.01 });
-    this.key_triggered_button('Increase Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor += 0.01 });
-    this.key_triggered_button('Decrease Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
+    this.key_triggered_button('(+) Bumpiness', [''], () => { this.settings.groundOptions.bumpiness += 0.01 });
+    this.key_triggered_button('(-) Bumpiness', [''], () => { this.settings.groundOptions.bumpiness -= 0.01 });
+    this.key_triggered_button('(+) Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions += 1 });
+    this.key_triggered_button('(-) Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions -= 1 });
+    this.key_triggered_button('(+) Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions += 1 });
+    this.key_triggered_button('(-) Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions -= 1 });
+    this.key_triggered_button('(+) Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor += 0.01 });
+    this.key_triggered_button('(-) Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor -= 0.01 });
+    this.key_triggered_button('(+) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor += 0.01 });
+    this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new OffsetSquare(this.settings.mountainOptions) });
+    this.key_triggered_button('Generate new tree', [''], () => { 
+      this.branches = new TreeGenerator({
+        baseLength: 4,
+      }).generateTree()
+    });
   }
 }
 

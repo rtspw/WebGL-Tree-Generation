@@ -124,14 +124,39 @@ function getRandomOrthogonalVector(inputVector) {
  *    initialDirectionVector: Direction it initially builds off. Starts from origin for starting position
  *    baseLength: Upper bound for length of trunk
  *    baseRadius: Upper boud for radius of trunk
+ *    branchLengthLowerBoundFactor: What fraction of the upper bound the lower bound should be
  *    cutoffThreshold: Stop recursively creating branches when length has decayed to certain number
  *    lengthDecayRate: Determines the length of the chilren branches for each recursive call
+ *    radiusDecayRate: Determines fraction of radius each recursive call should use
  *    minSplitAngle: Upper bound for angle from direction vector new branches should split
  *    maxSplitAngle: Lower bound for angle from direction vector new branches should split
  */
 class TreeGenerator {
   constructor(parameters = {}) {
-    Object.assign(this, parameters);
+    const {
+      initialDirectionVector = vec3(0, 1, 0),
+      baseLength = 6,
+      baseRadius = 4,
+      heightNoiseRange = null,
+      cutoffThreshold = 1,
+      lengthDecayRate = 0.9,
+      radiusDecayRate = 0.5,
+      minSplitAngle = Math.PI / 6,
+      maxSplitAngle = Math.PI / 3,
+      branchLengthLowerBoundFactor = 0.5,
+    } = parameters;
+    Object.assign(this, {
+      initialDirectionVector,
+      baseLength,
+      baseRadius,
+      heightNoiseRange,
+      cutoffThreshold,
+      lengthDecayRate,
+      radiusDecayRate,
+      minSplitAngle,
+      maxSplitAngle,
+      branchLengthLowerBoundFactor,
+    });
   }
 
   updateParameters(parameters = {}) {
@@ -141,10 +166,11 @@ class TreeGenerator {
   generateTree() {
     const branches = [];
     const rootPosition = vec3(0, 0, 0);
-    const trunk = new Branch(rootPosition, this.initialDirectionVector, this.baseLength, this.baseRadius);
+    const trunkLength = uniformRV(this.baseLength * this.branchLengthLowerBoundFactor, this.baseLength);
+    const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength, this.baseRadius);
     branches.push(trunk);
-    const endPoint = rootPosition.plus(this.initialDirectionVector.times(this.baseLength));
-    this.__createBranches(branches, endPoint, this.initialDirectionVector, this.baseLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
+    const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength));
+    this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
     return branches;
   }
 
@@ -162,14 +188,14 @@ class TreeGenerator {
     const normalAxis = getRandomOrthogonalVector(directionVector).times(Math.random());
     const branchVector1 = Mat4.rotation(uniformRV(this.minSplitAngle, this.maxSplitAngle), ...normalAxis).times(directionVector).to3().normalized();
     const branchVector2 = Mat4.rotation(uniformRV(-this.maxSplitAngle, -this.minSplitAngle), ...normalAxis).times(directionVector).to3().normalized();
-    const length1 = uniformRV(branchLength * 0.5, branchLength);
-    const length2 = uniformRV(branchLength * 0.5, branchLength);
+    const length1 = uniformRV(branchLength * this.branchLengthLowerBoundFactor, branchLength);
+    const length2 = uniformRV(branchLength * this.branchLengthLowerBoundFactor, branchLength);
     branches.push(new Branch(startPos, branchVector1, length1, branchRadius))
     branches.push(new Branch(startPos, branchVector2, length2, branchRadius))
     const endPoint1 = startPos.plus(branchVector1.times(length1));
     const endPoint2 = startPos.plus(branchVector2.times(length2));
-    this.__createBranches(branches, endPoint1, branchVector1, length1 * this.lengthDecayRate, branchRadius / 2);
-    this.__createBranches(branches, endPoint2, branchVector2, length2 * this.lengthDecayRate, branchRadius / 2);
+    this.__createBranches(branches, endPoint1, branchVector1, length1 * this.lengthDecayRate, branchRadius * this.radiusDecayRate);
+    this.__createBranches(branches, endPoint2, branchVector2, length2 * this.lengthDecayRate, branchRadius * this.radiusDecayRate);
   }
 }
 
@@ -424,13 +450,15 @@ class MainScene extends Scene {
 
     this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_8__["default"]({
       initialDirectionVector: vec3(0, 1, 0),
-      baseLength: 10,
+      baseLength: 6,
       baseRadius: 4,
       heightNoiseRange: null,
-      cutoffThreshold: 0.5,
-      lengthDecayRate: 0.7,
+      cutoffThreshold: 1,
+      lengthDecayRate: 0.9,
+      radiusDecayRate: 0.5,
       minSplitAngle: Math.PI / 6,
       maxSplitAngle: Math.PI / 3,
+      branchLengthLowerBoundFactor: 0.5,
     }).generateTree()
 
     console.log(this.branches)
@@ -476,7 +504,7 @@ class MainScene extends Scene {
       this.children.push(context.scratchpad.controls);
       state.set_camera(Mat4.look_at(vec3(0, 10, 25), vec3(0, 0, -50), vec3(0, 1, 0)));
     }
-    state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 100);
+    state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 200);
     this.particles.leaves = [...Array(this.settings.leafOptions.numberOfLeaves)];
     this.particles.leaves.forEach((_, i) => {
       const {
@@ -576,6 +604,7 @@ class MainScene extends Scene {
     // this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
+    this.shapes
 
     for (const branch of this.branches) {
       const size = branch.radius * .1;
@@ -607,17 +636,22 @@ class MainScene extends Scene {
     this.live_string(elem => { elem.textContent = `Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}`});
     this.new_line();
     this.key_triggered_button('Generate new ground', [''], () => { this.shapes.offsetSquare = new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.groundOptions) });
-    this.key_triggered_button('Increase Bumpiness', [''], () => { this.settings.groundOptions.bumpiness += 0.01 });
-    this.key_triggered_button('Decrease Bumpiness', [''], () => { this.settings.groundOptions.bumpiness -= 0.01 });
-    this.key_triggered_button('Increase Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions += 1 });
-    this.key_triggered_button('Decrease Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions -= 1 });
-    this.key_triggered_button('Increase Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions += 1 });
-    this.key_triggered_button('Decrease Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions -= 1 });
-    this.key_triggered_button('Increase Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor += 0.01 });
-    this.key_triggered_button('Decrease Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor -= 0.01 });
-    this.key_triggered_button('Increase Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor += 0.01 });
-    this.key_triggered_button('Decrease Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
+    this.key_triggered_button('(+) Bumpiness', [''], () => { this.settings.groundOptions.bumpiness += 0.01 });
+    this.key_triggered_button('(-) Bumpiness', [''], () => { this.settings.groundOptions.bumpiness -= 0.01 });
+    this.key_triggered_button('(+) Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions += 1 });
+    this.key_triggered_button('(-) Row Divisions', [''], () => { this.settings.groundOptions.rowDivisions -= 1 });
+    this.key_triggered_button('(+) Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions += 1 });
+    this.key_triggered_button('(-) Column Divisions', [''], () => { this.settings.groundOptions.columnDivisions -= 1 });
+    this.key_triggered_button('(+) Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor += 0.01 });
+    this.key_triggered_button('(-) Row Noise', [''], () => { this.settings.groundOptions.rowNoiseFactor -= 0.01 });
+    this.key_triggered_button('(+) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor += 0.01 });
+    this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.mountainOptions) });
+    this.key_triggered_button('Generate new tree', [''], () => { 
+      this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_8__["default"]({
+        baseLength: 4,
+      }).generateTree()
+    });
   }
 }
 
