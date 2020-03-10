@@ -487,8 +487,6 @@ class MainScene extends Scene {
       return uniqueLeaf;
     });
 
-    console.log(this.leaves)
-
     this.initialized = false;
   }
 
@@ -1921,10 +1919,7 @@ class TreeBark extends Shape {
         [-.8,0,-.45], [-.8,0,-.45], [-.8,0,-.45],
       );
     }
-    
-    
     this.arrays.normal = this.arrays.normal.map(normal => normal.normalized());
-    console.log(this.arrays.normal)
   }
 }
 

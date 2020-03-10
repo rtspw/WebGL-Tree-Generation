@@ -50,10 +50,7 @@ class TreeBark extends Shape {
         [-.8,0,-.45], [-.8,0,-.45], [-.8,0,-.45],
       );
     }
-    
-    
     this.arrays.normal = this.arrays.normal.map(normal => normal.normalized());
-    console.log(this.arrays.normal)
   }
 }
 
