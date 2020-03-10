@@ -411,7 +411,7 @@ class MainScene extends Scene {
         numberOfLeaves: 10,
         initialReleaseInterval: 0.5,
         releaseIntervalNoiseRange: [0, 0.25],
-        baseVelocity: [4, 1, 0],
+        baseVelocity: [0, 1, 4],
         noiseRange: {
           x: [0, 1],
           y: [0, 1],
@@ -466,8 +466,8 @@ class MainScene extends Scene {
       metal: new Material(this.shaders.phongWithFog, { ambient: 0, diffusivity: .2, specularity: .95, color: color(.4, .4, .6, 1) }),
       sun: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.sunColor) }),
       moon: new Material(this.shaders.phong, { ambient: 1, diffusivity: 1, specularity: 0, color: color(...this.settings.moonColor) }),
-      leaf: new Material(this.shaders.phong, { ambient: .5, specularity: 0 }),
-      tree: new Material(this.shaders.phong, {ambient: .3, diffusivity: .3, specularity: .01, color: color(.59, .29, 0, 1)}),
+      leaf: new Material(this.shaders.phongWithFog, { ambient: .5, specularity: 0 }),
+      tree: new Material(this.shaders.phongWithFog, {ambient: .3, diffusivity: .3, specularity: .01, color: color(.59, .29, 0, 1)}),
     };
 
     this.positions = {
@@ -541,7 +541,7 @@ class MainScene extends Scene {
     if (!context.scratchpad.controls) {
       context.scratchpad.controls = new _scene_components_js__WEBPACK_IMPORTED_MODULE_1__["Movement_Controls"]();
       this.children.push(context.scratchpad.controls);
-      state.set_camera(Mat4.look_at(vec3(0, 10, 25), vec3(0, 0, -50), vec3(0, 1, 0)));
+      state.set_camera(Mat4.look_at(vec3(-35, 10, 0), vec3(50, 15, -20), vec3(0, 1, 0)));
     }
     state.projection_transform = Mat4.perspective(Math.PI/4, context.width/context.height, 1, 200);
     this.particles.leaves = [...Array(this.settings.leafOptions.numberOfLeaves)];
@@ -607,7 +607,7 @@ class MainScene extends Scene {
     context.context.clearColor(...updatedFogColor);
   }
 
-  updateLeaves(context, state) {
+  updateFlyingLeaves(context, state) {
     for (let i = 0; i < this.particles.leaves.length; i++) {
       const currentLeaf = this.particles.leaves[i];
       if (currentLeaf == null) continue;
@@ -636,13 +636,7 @@ class MainScene extends Scene {
     }
   }
 
-  display(context, state) {
-    if (!this.initialized) this.initializeScene(context, state);
-    this.updateSun(context, state);
-    this.updateMoon(context, state);
-    this.updateTerrain(context, state);
-    this.updateSky(context, state); 
-    this.updateLeaves(context, state);
+  updateTree(context, state) {
     for (const branch of this.branches) {
       const normalizedDirection = branch.directionVector.normalized();
       const rotationAxis = normalizedDirection.cross(vec3(0,1,0));
@@ -662,6 +656,16 @@ class MainScene extends Scene {
       this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: currentLeaf.color}));
       context.context.enable(context.context.CULL_FACE)
     }
+  }
+
+  display(context, state) {
+    if (!this.initialized) this.initializeScene(context, state);
+    this.updateSun(context, state);
+    this.updateMoon(context, state);
+    this.updateTerrain(context, state);
+    this.updateSky(context, state); 
+    this.updateFlyingLeaves(context, state);
+    this.updateTree(context, state);
   }
 
   make_control_panel() {
