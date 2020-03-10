@@ -23,4 +23,5 @@ module.exports = {
       template : 'index.html'
     })
   ],
+  devtool: 'source-map',
 };

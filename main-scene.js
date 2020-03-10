@@ -9,6 +9,8 @@ import OffsetSquare from './shapes/offset-square.js';
 import Subdivision_Sphere from './shapes/subdivision-sphere.js';
 import Cube from './shapes/cube.js';
 
+import TreeGenerator from './generate-tree.js';
+
 const {
   Scene,
   vec3,
@@ -162,6 +164,19 @@ class MainScene extends Scene {
       leaves: []
     }
 
+    this.branches = new TreeGenerator({
+      initialDirectionVector: vec3(0, 1, 0),
+      baseLength: 10,
+      baseRadius: 4,
+      heightNoiseRange: null,
+      cutoffThreshold: 0.5,
+      lengthDecayRate: 0.7,
+      minSplitAngle: Math.PI / 6,
+      maxSplitAngle: Math.PI / 3,
+    }).generateTree()
+
+    console.log(this.branches)
+
     this.initialized = false;
   }
 
@@ -300,9 +315,14 @@ class MainScene extends Scene {
     this.updateSun(context, state);
     this.updateMoon(context, state);
     this.updateTerrain(context, state);
-    this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
+    // this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
+
+    for (const branch of this.branches) {
+      const size = branch.radius * .1;
+      this.shapes.cube.draw(context, state, Mat4.translation(...branch.rootPosition).times(Mat4.scale(size, size, size)), this.materials.metal);
+    }
   }
 
   make_control_panel() {
