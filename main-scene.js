@@ -8,6 +8,7 @@ import Leaf from './shapes/leaf.js';
 import OffsetSquare from './shapes/offset-square.js';
 import Subdivision_Sphere from './shapes/subdivision-sphere.js';
 import Cube from './shapes/cube.js';
+import TreeBark from './shapes/tree-bark.js';
 
 import TreeGenerator from './generate-tree.js';
 
@@ -130,7 +131,20 @@ class MainScene extends Scene {
         rotationNoiseRange: [0, 0.05],
         decaySpeed: 0.005,
         removalThreshold: 0.05,
-      }
+      },
+      treeOptions: {
+        initialDirectionVector: vec3(0, 1, 0),
+        baseLength: 6,
+        baseRadius: 4,
+        heightNoiseRange: null,
+        cutoffThreshold: 1,
+        lengthDecayRate: 0.9,
+        radiusDecayRate: 0.5,
+        minSplitAngle: Math.PI / 6,
+        maxSplitAngle: Math.PI / 3,
+        branchLengthLowerBoundFactor: 0.75,
+        extraTrunkLength: 5,
+      },
     }
 
     this.shapes = {
@@ -164,18 +178,7 @@ class MainScene extends Scene {
       leaves: []
     }
 
-    this.branches = new TreeGenerator({
-      initialDirectionVector: vec3(0, 1, 0),
-      baseLength: 6,
-      baseRadius: 4,
-      heightNoiseRange: null,
-      cutoffThreshold: 1,
-      lengthDecayRate: 0.9,
-      radiusDecayRate: 0.5,
-      minSplitAngle: Math.PI / 6,
-      maxSplitAngle: Math.PI / 3,
-      branchLengthLowerBoundFactor: 0.5,
-    }).generateTree()
+    this.branches = new TreeGenerator(this.settings.treeOptions).generateTree();
 
     console.log(this.branches)
 
@@ -317,7 +320,6 @@ class MainScene extends Scene {
     this.updateSun(context, state);
     this.updateMoon(context, state);
     this.updateTerrain(context, state);
-    // this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
     this.shapes

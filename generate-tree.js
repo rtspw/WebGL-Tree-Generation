@@ -46,6 +46,7 @@ class TreeGenerator {
       minSplitAngle = Math.PI / 6,
       maxSplitAngle = Math.PI / 3,
       branchLengthLowerBoundFactor = 0.5,
+      extraTrunkLength = 0,
     } = parameters;
     Object.assign(this, {
       initialDirectionVector,
@@ -58,6 +59,7 @@ class TreeGenerator {
       minSplitAngle,
       maxSplitAngle,
       branchLengthLowerBoundFactor,
+      extraTrunkLength,
     });
   }
 
@@ -69,9 +71,9 @@ class TreeGenerator {
     const branches = [];
     const rootPosition = vec3(0, 0, 0);
     const trunkLength = uniformRV(this.baseLength * this.branchLengthLowerBoundFactor, this.baseLength);
-    const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength, this.baseRadius);
+    const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength + this.extraTrunkLength, this.baseRadius);
     branches.push(trunk);
-    const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength));
+    const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength + this.extraTrunkLength));
     this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
     return branches;
   }

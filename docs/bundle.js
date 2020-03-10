@@ -144,6 +144,7 @@ class TreeGenerator {
       minSplitAngle = Math.PI / 6,
       maxSplitAngle = Math.PI / 3,
       branchLengthLowerBoundFactor = 0.5,
+      extraTrunkLength = 0,
     } = parameters;
     Object.assign(this, {
       initialDirectionVector,
@@ -156,6 +157,7 @@ class TreeGenerator {
       minSplitAngle,
       maxSplitAngle,
       branchLengthLowerBoundFactor,
+      extraTrunkLength,
     });
   }
 
@@ -167,9 +169,9 @@ class TreeGenerator {
     const branches = [];
     const rootPosition = vec3(0, 0, 0);
     const trunkLength = uniformRV(this.baseLength * this.branchLengthLowerBoundFactor, this.baseLength);
-    const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength, this.baseRadius);
+    const trunk = new Branch(rootPosition, this.initialDirectionVector, trunkLength + this.extraTrunkLength, this.baseRadius);
     branches.push(trunk);
-    const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength));
+    const endPoint = rootPosition.plus(this.initialDirectionVector.times(trunkLength + this.extraTrunkLength));
     this.__createBranches(branches, endPoint, this.initialDirectionVector, trunkLength * this.lengthDecayRate, this.baseRadius * this.lengthDecayRate)
     return branches;
   }
@@ -281,7 +283,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./shapes/offset-square.js */ "./shapes/offset-square.js");
 /* harmony import */ var _shapes_subdivision_sphere_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./shapes/subdivision-sphere.js */ "./shapes/subdivision-sphere.js");
 /* harmony import */ var _shapes_cube_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./shapes/cube.js */ "./shapes/cube.js");
-/* harmony import */ var _generate_tree_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./generate-tree.js */ "./generate-tree.js");
+/* harmony import */ var _shapes_tree_bark_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./shapes/tree-bark.js */ "./shapes/tree-bark.js");
+/* harmony import */ var _generate_tree_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./generate-tree.js */ "./generate-tree.js");
+
 
 
 
@@ -414,7 +418,20 @@ class MainScene extends Scene {
         rotationNoiseRange: [0, 0.05],
         decaySpeed: 0.005,
         removalThreshold: 0.05,
-      }
+      },
+      treeOptions: {
+        initialDirectionVector: vec3(0, 1, 0),
+        baseLength: 6,
+        baseRadius: 4,
+        heightNoiseRange: null,
+        cutoffThreshold: 1,
+        lengthDecayRate: 0.9,
+        radiusDecayRate: 0.5,
+        minSplitAngle: Math.PI / 6,
+        maxSplitAngle: Math.PI / 3,
+        branchLengthLowerBoundFactor: 0.75,
+        extraTrunkLength: 5,
+      },
     }
 
     this.shapes = {
@@ -448,18 +465,7 @@ class MainScene extends Scene {
       leaves: []
     }
 
-    this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_8__["default"]({
-      initialDirectionVector: vec3(0, 1, 0),
-      baseLength: 6,
-      baseRadius: 4,
-      heightNoiseRange: null,
-      cutoffThreshold: 1,
-      lengthDecayRate: 0.9,
-      radiusDecayRate: 0.5,
-      minSplitAngle: Math.PI / 6,
-      maxSplitAngle: Math.PI / 3,
-      branchLengthLowerBoundFactor: 0.5,
-    }).generateTree()
+    this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_9__["default"](this.settings.treeOptions).generateTree();
 
     console.log(this.branches)
 
@@ -601,7 +607,6 @@ class MainScene extends Scene {
     this.updateSun(context, state);
     this.updateMoon(context, state);
     this.updateTerrain(context, state);
-    // this.shapes.cube.draw(context, state, Mat4.translation(0, 5, 0), this.materials.metal);
     this.updateSky(context, state); 
     this.updateLeaves(context, state);
     this.shapes
@@ -648,7 +653,7 @@ class MainScene extends Scene {
     this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new _shapes_offset_square_js__WEBPACK_IMPORTED_MODULE_5__["default"](this.settings.mountainOptions) });
     this.key_triggered_button('Generate new tree', [''], () => { 
-      this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_8__["default"]({
+      this.branches = new _generate_tree_js__WEBPACK_IMPORTED_MODULE_9__["default"]({
         baseLength: 4,
       }).generateTree()
     });
@@ -670,7 +675,7 @@ class MainScene extends Scene {
 var ___CSS_LOADER_API_IMPORT___ = __webpack_require__(/*! ./node_modules/css-loader/dist/runtime/api.js */ "./node_modules/css-loader/dist/runtime/api.js");
 exports = ___CSS_LOADER_API_IMPORT___(false);
 // Module
-exports.push([module.i, "* {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}\n\nbody {\n  background: #eee;\n}\n\n.container {\n  margin: 50px auto;\n  display: flex;\n  justify-content: center;\n}", ""]);
+exports.push([module.i, "* {\r\n  box-sizing: border-box;\r\n  margin: 0;\r\n  padding: 0;\r\n}\r\n\r\nbody {\r\n  background: #eee;\r\n}\r\n\r\n.container {\r\n  margin: 50px auto;\r\n  display: flex;\r\n  justify-content: center;\r\n}", ""]);
 // Exports
 module.exports = exports;
 
@@ -1786,6 +1791,33 @@ class Subdivision_Sphere extends Shape {
 }
 
 /* harmony default export */ __webpack_exports__["default"] = (Subdivision_Sphere);
+
+/***/ }),
+
+/***/ "./shapes/tree-bark.js":
+/*!*****************************!*\
+  !*** ./shapes/tree-bark.js ***!
+  \*****************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var _tiny_graphics_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../tiny-graphics.js */ "./tiny-graphics.js");
+
+const { Shape, Vector, Vector3 } = _tiny_graphics_js__WEBPACK_IMPORTED_MODULE_0__["tiny"];
+
+class TreeBark extends Shape {                                 
+  constructor() { 
+    super( "position", "normal", "texture_coord" );                           
+    this.arrays.position = Vector3.cast([-1,-1,0], [1,-1,0], [-1,1,0], [1,1,0]);
+    this.arrays.normal = Vector3.cast([0,0,1], [0,0,1], [0,0,1], [0,0,1]);
+    this.arrays.texture_coord = Vector.cast([0,0], [1,0], [0,1], [1,1]);
+    this.indices.push(0, 1, 2, 1, 3, 2);
+  }
+}
+
+/* harmony default export */ __webpack_exports__["default"] = (TreeBark);
 
 /***/ }),
 
