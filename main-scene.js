@@ -39,13 +39,13 @@ function clamp(value, max = 1, min = -1) {
   return Math.max(min, Math.min(max, value));
 }
 
-// 1   - ?        240,248,255
-// .5  - #f8b195  248,177,149
-// .4  - #f67280  246,114,128
-// .3  - #c06c84  192,108,132
-// .1  - #6c5b7b   108,91,123
-// -.2 - #355c7d    53,92,125
-// -1  - ?           25,25,50
+// 1   - 240,248,255
+// .5  - 248,177,149
+// .4  - 246,114,128
+// .3  - 192,108,132
+// .1  - 108,91,123
+// -.2 - 53,92,125
+// -1  - 25,25,50
 function getColorFromSpectrum(value) {
   const clampedValue = clamp(value);
   if (.4 <= clampedValue && clampedValue <= 1) {
@@ -120,7 +120,7 @@ class MainScene extends Scene {
           y: [0, 1],
           z: [-1, 1],
         },
-        sizeRange: [0.15, .85],
+        sizeRange: [0.5, 1.2],
         colorRange: {
           r: [0, .6],
           g: [.3, .6],
@@ -135,8 +135,8 @@ class MainScene extends Scene {
       treeOptions: {
         initialDirectionVector: vec3(0, 1, 0),
         baseLength: 6,
-        baseRadius: 1,
-        cutoffThreshold: 1.25,
+        baseRadius: 1.5,
+        cutoffThreshold: 1.1,
         leafThreshold: 2,
         lengthDecayRate: 0.9,
         radiusDecayRate: .5,
@@ -145,7 +145,6 @@ class MainScene extends Scene {
         branchLengthLowerBoundFactor: 0.75,
         extraTrunkLength: 2,
         useSmoothShading: true,
-        leafSizeRange: [.15, 1.5],
       },
     }
 
@@ -185,7 +184,7 @@ class MainScene extends Scene {
     const generatedTree = new TreeGenerator(this.settings.treeOptions).generateTree();
     this.branches = generatedTree.branches;
     this.leaves = generatedTree.leaves.map(leafPosition => {
-      const uniqueLeaf = this.generateLeaf({sizeRange: this.settings.leafOptions.sizeRange}, true)
+      const uniqueLeaf = this.generateLeaf(true)
       uniqueLeaf.position = [...leafPosition];
       return uniqueLeaf;
     });
@@ -193,7 +192,7 @@ class MainScene extends Scene {
     this.initialized = false;
   }
 
-  generateLeaf(overrideOptions = {}, isStatic = false) {
+  generateLeaf(isStatic = false) {
     const spawnRadius = 8;
     const uniformRadius = uniformRV(-1, 1) * spawnRadius;
     const {
@@ -201,7 +200,7 @@ class MainScene extends Scene {
       noiseRange,
       sizeRange,
       colorRange,
-    } = {...this.settings.leafOptions, ...overrideOptions};
+    } = this.settings.leafOptions;
     if (isStatic) {
       return {
         position: [0,0,0,1],
@@ -370,13 +369,6 @@ class MainScene extends Scene {
   }
 
   make_control_panel() {
-    this.live_string(elem => {elem.textContent = `Leaf size lower bound: ${this.settings.leafOptions.sizeRange[0].toFixed(3)}`});
-    this.new_line()
-    this.live_string(elem => {elem.textContent = `Leaf size upper bound: ${this.settings.leafOptions.sizeRange[1].toFixed(3)}`});
-    this.new_line();
-    this.key_triggered_button('Increase leaf size lower bound', [''], () => this.settings.leafOptions.sizeRange[0] += 0.1);
-    this.key_triggered_button('Increase leaf size upper bound', [''], () => this.settings.leafOptions.sizeRange[1] += 0.1);
-    this.new_line();
     this.live_string(elem => {elem.textContent = `Day/night cycles per minute: ${this.settings.rotationsPerMinute.toFixed(3)}`});
     this.new_line();
     this.key_triggered_button('Increase day/night speed', [''], () => this.settings.rotationsPerMinute += .1);
@@ -387,14 +379,9 @@ class MainScene extends Scene {
     this.live_string(elem => { 
       elem.textContent = `
         Row Divisions: ${this.settings.groundOptions.rowDivisions.toFixed(3)}
-        Column Divisions: ${this.settings.groundOptions.columnDivisions.toFixed(3)}
-      `
-    });
-    this.new_line();
-    this.live_string(elem => { 
-      elem.textContent = `
-        Row Noise: ${this.settings.groundOptions.rowNoiseFactor.toFixed(3)}
-        Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}
+        | Column Divisions: ${this.settings.groundOptions.columnDivisions.toFixed(3)}
+        | Row Noise: ${this.settings.groundOptions.rowNoiseFactor.toFixed(3)}
+        | Column Noise: ${this.settings.groundOptions.colNoiseFactor.toFixed(3)}
       `
     });
     this.new_line();
@@ -410,11 +397,60 @@ class MainScene extends Scene {
     this.key_triggered_button('(+) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor += 0.01 });
     this.key_triggered_button('(-) Column Noise', [''], () => { this.settings.groundOptions.colNoiseFactor -= 0.01 });
     this.key_triggered_button('Generate new mountain', [''], () => { this.shapes.offsetSquare2 = new OffsetSquare(this.settings.mountainOptions) });
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `
+      Base Length: ${this.settings.treeOptions.baseLength.toFixed(3)}
+      | Base Radius: ${this.settings.treeOptions.baseRadius.toFixed(3)}
+      | Cutoff Threshold: ${this.settings.treeOptions.cutoffThreshold.toFixed(3)}
+      | Leaf Threshold: ${this.settings.treeOptions.leafThreshold.toFixed(3)}
+    `});
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `
+      Branch Length Decay Factor: ${this.settings.treeOptions.lengthDecayRate.toFixed(3)}
+      | Radius Decay Factor: ${this.settings.treeOptions.radiusDecayRate.toFixed(3)}
+      | Leaf Size Lower Range: ${this.settings.leafOptions.sizeRange[0].toFixed(3)}
+    `});
+    this.new_line();
+    this.live_string(elem => { elem.textContent = `
+      Leaf Size Upper Range: ${this.settings.leafOptions.sizeRange[1].toFixed(3)}
+      | Extra Base Length: ${this.settings.treeOptions.extraTrunkLength.toFixed(3)}
+      | Min Angle: ${this.settings.treeOptions.minSplitAngle.toFixed(3)}
+      | Max Angle: ${this.settings.treeOptions.maxSplitAngle.toFixed(3)}
+    `});
+    this.new_line();
+    this.key_triggered_button('(+) Base Length', [''], () => { this.settings.treeOptions.baseLength += 0.1 });
+    this.key_triggered_button('(-) Base Length', [''], () => { this.settings.treeOptions.baseLength -= 0.1 });
+    this.key_triggered_button('(+) Base Radius', [''], () => { this.settings.treeOptions.baseRadius += 0.1 });
+    this.key_triggered_button('(-) Base Radius', [''], () => { this.settings.treeOptions.baseRadius -= 0.1 });
+    this.new_line();
+    this.key_triggered_button('(+) Cutoff', [''], () => { this.settings.treeOptions.cutoffThreshold += 0.05 });
+    this.key_triggered_button('(-) Cutoff', [''], () => { 
+      this.settings.treeOptions.cutoffThreshold -= 0.05;
+      if (this.settings.treeOptions.cutoffThreshold < 0.75 && !this.gaveAlert) {
+        alert('Warning: low cutoff values may cause lag or page crashes!');
+        this.gaveAlert = true;
+      }
+    });
+    this.key_triggered_button('(+) Leaf Threshold', [''], () => { this.settings.treeOptions.leafThreshold += 0.1 });
+    this.key_triggered_button('(-) Leaf Threshold', [''], () => { this.settings.treeOptions.leafThreshold -= 0.1 });
+    this.key_triggered_button('(+) Leaf Size', [''], () => { 
+      this.settings.leafOptions.sizeRange[0] += 0.1;
+      this.settings.leafOptions.sizeRange[1] += 0.1;
+    });
+    this.key_triggered_button('(-) Leaf Size', [''], () => { 
+      this.settings.leafOptions.sizeRange[0] -= 0.1;
+      this.settings.leafOptions.sizeRange[1] -= 0.1;
+    });
+    this.key_triggered_button('(+) Min Angle', [''], () => { this.settings.treeOptions.minSplitAngle += Math.PI / 32 });
+    this.key_triggered_button('(-) Min Angle', [''], () => { this.settings.treeOptions.minSplitAngle -= Math.PI / 32 });
+    this.key_triggered_button('(+) Max Angle', [''], () => { this.settings.treeOptions.maxSplitAngle += Math.PI / 32 });
+    this.key_triggered_button('(-) Max Angle', [''], () => { this.settings.treeOptions.maxSplitAngle -= Math.PI / 32 });
+    this.new_line();
     this.key_triggered_button('Generate new tree', [''], () => { 
       const newTree = new TreeGenerator(this.settings.treeOptions).generateTree();
       this.branches = newTree.branches;
       this.leaves = newTree.leaves.map(leafPosition => {
-        const uniqueLeaf = this.generateLeaf({sizeRange: this.settings.leafOptions.sizeRange}, true)
+        const uniqueLeaf = this.generateLeaf(true)
         uniqueLeaf.position = [...leafPosition];
         return uniqueLeaf;
       });
