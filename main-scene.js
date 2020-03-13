@@ -112,9 +112,9 @@ class MainScene extends Scene {
       initialSunOffset: 11 * Math.PI / 8,
       leafOptions: {
         numberOfLeaves: 10,
-        initialReleaseInterval: 0.5,
+        initialReleaseInterval: 1,
         releaseIntervalNoiseRange: [0, 0.25],
-        baseVelocity: [0, 1, 4],
+        baseVelocity: [0, 1, 7],
         noiseRange: {
           x: [0, 1],
           y: [0, 1],
@@ -129,7 +129,7 @@ class MainScene extends Scene {
         },
         baseRotationSpeed: 0.01,
         rotationNoiseRange: [0, 0.05],
-        decaySpeed: 0.005,
+        decaySpeed: 0.01,
         removalThreshold: 0.05,
       },
       treeOptions: {
@@ -193,8 +193,6 @@ class MainScene extends Scene {
   }
 
   generateLeaf(isStatic = false) {
-    const spawnRadius = 8;
-    const uniformRadius = uniformRV(-1, 1) * spawnRadius;
     const {
       baseVelocity,
       noiseRange,
@@ -214,8 +212,10 @@ class MainScene extends Scene {
         ],
       }
     }
+    
+    const randomPosition = [...this.leaves[Math.round(uniformRV(0, this.leaves.length - 1))].position, 1];
     return { 
-      position: [uniformRadius, 13 + uniformRadius, uniformRadius, 1], 
+      position: randomPosition,
       size: uniformRV(...sizeRange), 
       rotation: [uniformRV(0, Math.PI * 2), Math.random(), Math.random(), Math.random()],
       color: [
@@ -329,7 +329,7 @@ class MainScene extends Scene {
       const matrix = Mat4.translation(...currentLeaf.position)
         .times(Mat4.scale(currentLeaf.size, currentLeaf.size, currentLeaf.size))
         .times(Mat4.rotation(...currentLeaf.rotation))
-
+    
       context.context.disable(context.context.CULL_FACE)
       this.shapes.leaf.draw(context, state, matrix, this.materials.leaf.override({color: currentLeaf.color}));
       context.context.enable(context.context.CULL_FACE)
