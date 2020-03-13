@@ -122,10 +122,10 @@ class MainScene extends Scene {
         },
         sizeRange: [0.5, 1.2],
         colorRange: {
-          r: [0, .6],
+          r: [0, .5],
           g: [.3, .6],
           b: [0, .5],
-          a: [.5, 1],
+          a: [1, 1],
         },
         baseRotationSpeed: 0.01,
         rotationNoiseRange: [0, 0.05],
@@ -146,6 +146,7 @@ class MainScene extends Scene {
         extraTrunkLength: 2,
         useSmoothShading: true,
       },
+      isAutumn: false,
     }
 
     this.shapes = {
@@ -446,7 +447,7 @@ class MainScene extends Scene {
     this.key_triggered_button('(+) Max Angle', [''], () => { this.settings.treeOptions.maxSplitAngle += Math.PI / 32 });
     this.key_triggered_button('(-) Max Angle', [''], () => { this.settings.treeOptions.maxSplitAngle -= Math.PI / 32 });
     this.new_line();
-    this.key_triggered_button('Generate new tree', [''], () => { 
+    this.key_triggered_button('Generate new tree', ['c'], () => { 
       const newTree = new TreeGenerator(this.settings.treeOptions).generateTree();
       this.branches = newTree.branches;
       this.leaves = newTree.leaves.map(leafPosition => {
@@ -458,6 +459,23 @@ class MainScene extends Scene {
     this.key_triggered_button('Toggle tree shading', [''], () => {
       this.settings.treeOptions.useSmoothShading = !this.settings.treeOptions.useSmoothShading;
       this.shapes.treebark = new TreeBark(1 - this.settings.treeOptions.radiusDecayRate, this.settings.treeOptions.useSmoothShading)
+    })
+    this.key_triggered_button('Switch leaf palette', [''], () => {
+      this.settings.isAutumn = !this.settings.isAutumn;
+      if (this.settings.isAutumn) {
+        this.settings.leafOptions.colorRange.r = [.5, 1];
+      } else {
+        this.settings.leafOptions.colorRange.r = [0, .5];
+      }
+      this.leaves = this.leaves.map(leaf => {
+        leaf.color = [
+          uniformRV(...this.settings.leafOptions.colorRange.r), 
+          uniformRV(...this.settings.leafOptions.colorRange.g), 
+          uniformRV(...this.settings.leafOptions.colorRange.b), 
+          uniformRV(...this.settings.leafOptions.colorRange.a)
+        ];
+        return leaf;
+      });
     })
   }
 }
